@@ -12,8 +12,8 @@ const source = process.env.CHATPICK_BUILT
   : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator()', 'function startNavigator()') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {
-  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections'];
-  for (const scenario of scenarios.filter((scenario) => !scenario.startsWith('body-only-'))) {
+  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
+  for (const scenario of scenarios.filter((scenario) => !scenario.startsWith('body-only-') && !['switched-chat', 'initial-dom'].includes(scenario))) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const messages = [
       ['u1', 'user', 'Same question'], ['a1', 'assistant', '## First section'],
@@ -123,6 +123,90 @@ try {
     }
     assert.deepEqual(errors, []);
     console.log(`PASS: ${scenario}, structured question and chapter resolve to selected messages`);
+    await page.close();
+  }
+  if (scenarios.includes('initial-dom')) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    let releaseApi;
+    const apiReady = new Promise((resolve) => { releaseApi = resolve; });
+    await page.route('https://chatgpt.com/**', (route) => {
+      const url = route.request().url();
+      if (url.endsWith('/api/auth/session')) return route.fulfill({ json: { accessToken: 'fixture' } });
+      if (url.includes('/backend-api/')) return apiReady.then(() => route.fulfill({ json: { mapping: {
+        u1: { parent: null, message: { id: 'u1', author: { role: 'user' }, content: { parts: ['Rendered question'] } } },
+        a1: { parent: 'u1', message: { id: 'a1', author: { role: 'assistant' }, content: { parts: ['## Rendered section'] } } },
+      }, current_node: 'a1' } }));
+      return route.fulfill({ contentType: 'text/html', body: '<!doctype html><style>body{margin:0}main{padding-top:500px}footer{height:1500px}</style><main><article data-turn="user"><div data-message-author-role="user" data-message-id="u1">Rendered question</div></article><article data-turn="assistant"><div data-message-author-role="assistant" data-message-id="a1"><div class="markdown"><h2>Rendered section</h2></div></div></article></main><footer></footer>' });
+    });
+    await page.goto('https://chatgpt.com/c/initial-fixture');
+    await page.addScriptTag({ content: source });
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 0, 'Initial load must not show a partial question list');
+    assert(await page.locator('#cgpt-toc .cn-skeleton').isVisible(), 'Keep the full skeleton visible while API is pending');
+    releaseApi();
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 1, 'Complete loading must replace skeleton with the question list');
+    assert(!await page.locator('#cgpt-toc .cn-skeleton').isVisible());
+    await page.locator('#cgpt-toc .cn-item').hover();
+    await page.locator('#cgpt-sections .cn-item').click();
+    assert(await page.locator('h2').evaluate((node) => Math.abs(node.getBoundingClientRect().top - 72) < 2));
+    console.log('PASS: initial-dom, full skeleton remains until complete navigation is ready');
+    await page.close();
+  }
+  if (scenarios.includes('switched-chat')) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const conversation = (prefix) => ({ mapping: {
+      [`${prefix}1`]: { parent: null, message: { id: `${prefix}1`, author: { role: 'user' }, content: { parts: [`${prefix} first question`] } } },
+      [`${prefix}a1`]: { parent: `${prefix}1`, message: { id: `${prefix}a1`, author: { role: 'assistant' }, content: { parts: ['## Earlier answer'] } } },
+      [`${prefix}2`]: { parent: `${prefix}a1`, message: { id: `${prefix}2`, author: { role: 'user' }, content: { parts: [`${prefix} last question`] } } },
+    }, current_node: `${prefix}2` });
+    const user = (id, text) => `<div data-chatgpt-search-unit-key="${id}:user" data-chatgpt-search-message-ids="${id}"><div data-user-message-bubble>${text}</div></div>`;
+    let releaseFirst, releaseSecond;
+    const firstReady = new Promise((resolve) => { releaseFirst = resolve; });
+    const secondReady = new Promise((resolve) => { releaseSecond = resolve; });
+    await page.route('https://chatgpt.com/**', (route) => {
+      const url = route.request().url();
+      if (url.endsWith('/api/auth/session')) return route.fulfill({ json: { accessToken: 'fixture' } });
+      if (url.includes('/backend-api/')) return (url.endsWith('second-chat') ? secondReady : firstReady).then(() => route.fulfill({ json: conversation(url.endsWith('second-chat') ? 'new' : 'old') }));
+      return route.fulfill({ contentType: 'text/html', body: '<!doctype html><style>body{margin:0}#current-chat{height:600px;overflow-y:auto}.gap{height:900px}</style><main id="old-chat"></main>' });
+    });
+    await page.goto('https://chatgpt.com/c/first-chat');
+    await page.addScriptTag({ content: source });
+    await page.locator('#cgpt-toc .cn-skeleton').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#cgpt-toc').getAttribute('aria-busy'), 'true');
+    assert.equal(await page.locator('#cgpt-toc .cn-skeleton-bar').count(), 5);
+    releaseFirst();
+    await page.evaluate((markup) => { document.querySelector('#old-chat').innerHTML = markup; }, user('old2', 'old last question'));
+    await page.waitForTimeout(500);
+    assert(!await page.locator('#cgpt-toc .cn-skeleton').isVisible(), 'Loading placeholder must be replaced by questions');
+    await page.evaluate(() => history.pushState({}, '', '/c/second-chat'));
+    await page.locator('#cgpt-toc .cn-skeleton').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 0, 'Previous visible chat questions must be removed during loading');
+    await page.evaluate((markup) => {
+      document.querySelector('#old-chat').hidden = true;
+      const chat = document.createElement('main');
+      chat.id = 'current-chat';
+      chat.innerHTML = '<div class="gap"></div>' + markup + '<div class="gap"></div>';
+      document.body.append(chat);
+      chat.scrollTop = 700;
+      chat.addEventListener('scroll', () => {
+        if (chat.scrollTop > 100 || chat.querySelector('[data-chatgpt-search-message-ids="new1"]')) return;
+        chat.innerHTML = '<div style="height:180px"></div><div data-chatgpt-search-unit-key="new1:user" data-chatgpt-search-message-ids="new1"><div data-user-message-bubble>new first question</div></div><div data-chatgpt-search-unit-key="newa1:assistant"><div data-chatgpt-selection-message-id="newa1"><div data-markdown-text-style="assistant-message"><h2>Earlier answer</h2><div class="gap"></div></div></div></div>' + markup + '<div class="gap"></div>';
+      });
+    }, user('new2', 'new last question'));
+    await page.waitForTimeout(500);
+    assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 0, 'Switching chats must not show a partial question list');
+    assert(await page.locator('#cgpt-toc .cn-skeleton').isVisible(), 'Keep full skeleton until the new chat has loaded');
+    releaseSecond();
+    await page.waitForTimeout(350);
+    assert.deepEqual(await page.locator('#cgpt-toc .cn-t').allTextContents(), ['new first question', 'new last question']);
+    await page.locator('#cgpt-toc .cn-item').first().hover();
+    await page.locator('#cgpt-sections .cn-item').first().click();
+    await page.waitForTimeout(900);
+    const result = await page.evaluate(() => ({ headingTop: document.querySelector('#current-chat h2')?.getBoundingClientRect().top, toast: document.querySelector('#cgpt-nav-toast')?.textContent }));
+    assert(result.headingTop !== undefined && Math.abs(result.headingTop - 72) < 2, `switched-chat: answer nav stuck at ${result.toast}; current chat never loaded its earlier answer`);
+    assert(!result.toast, 'Loading and locating must clear after the answer is found');
+    console.log('PASS: switched-chat, skeleton loading state and hidden previous chat do not hijack answer navigation');
     await page.close();
   }
   const proseScenarios = process.env.CHATPICK_SCENARIOS?.split(',').filter((scenario) => scenario.startsWith('body-only-')) || ['body-only-dom', 'body-only-api', 'body-only-fallback'];

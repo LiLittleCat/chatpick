@@ -64,7 +64,7 @@ function App() {
   return (
     <main className="popup">
       <header className="popup-header">
-        <img src="/icon/96.png" width="56" height="56" alt="" />
+        <img src="/icon/logo.svg" width="56" height="56" alt="" />
         <div>
           <strong>ChatPick</strong>
           <span>{t.settings}</span>

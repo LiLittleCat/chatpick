@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "test:navigation": "node tests/navigation.browser.mjs",
     "postinstall": "wxt prepare"
   },
   "dependencies": {

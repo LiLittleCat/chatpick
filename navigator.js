@@ -27,6 +27,8 @@ export function startNavigator() {
       prev: 'Previous question (click repeatedly)',
       next: 'Next question (click repeatedly)',
       bottom: 'Go to bottom',
+      sections: 'Answer sections',
+      sectionMissing: 'Unable to locate this section. Please try again',
     },
     zh: {
       placeholder: '[图片/附件]',
@@ -41,6 +43,8 @@ export function startNavigator() {
       prev: '上一个提问（可连续点击）',
       next: '下一个提问（可连续点击）',
       bottom: '跳到底部',
+      sections: '回答章节',
+      sectionMissing: '无法定位这个章节，请重试',
     },
   };
   const label = (key) => labels[settings.language][key];
@@ -85,18 +89,35 @@ export function startNavigator() {
     '[data-role="user"]',
     '[data-message-author="user"]',
     '[data-testid="user-message"]',
+    '[data-content-search-unit-key$=":user"]',
+    '[data-chatgpt-search-unit-key$=":user"]',
+  ].join(',');
+
+  const ASSISTANT_ROLE_SEL = [
+    '[data-message-author-role="assistant"]',
+    '[data-message-role="assistant"]',
+    '[data-turn="assistant"]',
+    '[data-role="assistant"]',
+    '[data-message-author="assistant"]',
+    '[data-testid="assistant-message"]',
+    '[data-content-search-unit-key$=":assistant"]',
+    '[data-chatgpt-search-unit-key$=":assistant"]',
   ].join(',');
 
   const ANY_ROLE_SEL = [
     '[data-user-message-bubble]',
     '[data-message-author-role]',
     '[data-message-role]',
+    '[data-content-search-unit-key]',
+    '[data-chatgpt-search-unit-key]',
   ].join(',');
 
   const TURN_SEL = [
     '[data-testid^="conversation-turn"]',
     '[data-turn]',
     '[data-message-role]',
+    '[data-chatgpt-search-unit-key]',
+    '[data-content-search-unit-key]',
   ].join(',');
 
   const PLACEHOLDER = '[图片/附件]';
@@ -152,10 +173,10 @@ export function startNavigator() {
 
   // 把 DOM 里看到的一段提问合并进 entries（只接受"与已有内容有重叠"的情况）
   // allowPrepend=false 时只向后追加（entries 来自接口、本身已完整）
-  function mergeKeys(keys, texts, allowPrepend, markLocal) {
+  function mergeKeys(keys, texts, allowPrepend, markLocal, ids = []) {
     const L = keys.length;
     if (!L) return false;
-    const mk = (k) => ({ key: keys[k], text: texts[k], local: !!markLocal });
+    const mk = (k) => ({ key: keys[k], text: texts[k], local: !!markLocal, messageId: ids[k] });
     if (!entries.length) {
       entries = keys.map((_, k) => mk(k));
       return true;
@@ -169,7 +190,7 @@ export function startNavigator() {
         const j = s + k;
         if (j < 0 || j >= N) continue;
         ov++;
-        if (entries[j].key !== keys[k]) { ok = false; break; }
+        if (entries[j].messageId && ids[k] ? entries[j].messageId !== ids[k] : entries[j].key !== keys[k]) { ok = false; break; }
       }
       if (!ok || ov < 1) continue;
       if (!best || ov > best.ov) { best = { s, ov }; tie = 1; }
@@ -190,7 +211,41 @@ export function startNavigator() {
     return true;
   }
 
-  // 从 /backend-api/conversation/{id} 的返回里，取出当前分支上所有用户提问
+  function sectionText(text) {
+    const decoder = document.createElement('textarea');
+    decoder.innerHTML = text;
+    return decoder.value.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/[*_`~]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // 未渲染的回答也保留章节；代码围栏里的内容不参与目录。
+  function markdownSections(text, messageId) {
+    const headings = [];
+    const lines = text.split('\n');
+    let fence = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+      if (marker) {
+        if (!fence) fence = marker[1];
+        else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+        continue;
+      }
+      if (fence || /^ {4}|^\t/.test(line)) continue;
+      const heading = line.match(/^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
+      const setext = i + 1 < lines.length && /^ {0,3}(=+|-+)\s*$/.test(lines[i + 1]) && line.trim();
+      if (heading || setext) {
+        const title = sectionText(heading ? heading[2] : line);
+        if (title) headings.push({ text: title, level: heading ? heading[1].length : lines[i + 1].trim()[0] === '=' ? 1 : 2, messageId, kind: 'heading' });
+        if (setext) i++;
+        continue;
+      }
+    }
+    return headings;
+  }
+
+  // 从 /backend-api/conversation/{id} 的当前分支提取问题及其回答章节。
   function extractUserMessages(data) {
     const map = (data && data.mapping) || {};
     const path = [];
@@ -205,15 +260,23 @@ export function startNavigator() {
     const out = [];
     for (const n of path) {
       const m = n.message;
-      if (!m || !m.author || m.author.role !== 'user') continue;
+      if (!m || !m.author) continue;
       if (m.metadata && m.metadata.is_visually_hidden_from_conversation) continue;
       const c = m.content || {};
       if (c.content_type && c.content_type !== 'text' && c.content_type !== 'multimodal_text') continue;
       const parts = c.parts || [];
-      let text = parts.filter((p) => typeof p === 'string').join(' ').replace(/\s+/g, ' ').trim();
+      const raw = parts.filter((p) => typeof p === 'string').join('\n');
+      if (m.author.role === 'assistant') {
+        if (out.length && (!m.recipient || m.recipient === 'all') && (!m.channel || m.channel === 'final')) {
+          out[out.length - 1].sections.push(...markdownSections(raw, m.id));
+        }
+        continue;
+      }
+      if (m.author.role !== 'user') continue;
+      let text = raw.replace(/\s+/g, ' ').trim();
       if (!text && parts.length) text = PLACEHOLDER;
       if (!text) continue;
-      out.push({ key: normKey(text), text: text.slice(0, 300), local: false });
+      out.push({ key: normKey(text), text: text.slice(0, 300), local: false, messageId: m.id, sections: [] });
     }
     return out;
   }
@@ -231,7 +294,8 @@ export function startNavigator() {
   }
 
   function turnOf(node) {
-    return node.closest(TURN_SEL) || node.closest('article') || node;
+    return node.closest('[data-chatgpt-search-unit-key]') || node.closest('[data-content-search-unit-key]') ||
+      node.closest('[data-testid^="conversation-turn"], [data-turn]') || node.closest('article') || node.closest(TURN_SEL) || node;
   }
 
   function isUserTurn(turn) {
@@ -281,12 +345,146 @@ export function startNavigator() {
     return t.slice(0, 300);
   }
 
-  // 当前 DOM 里已渲染的提问，以及它们在完整列表里的位置
+  // 每个已渲染提问独立映射到目录；虚拟化后的消息不一定连续。
   function getWindow() {
     const msgs = getUserMessages();
     const keys = msgs.map((m) => normKey(getMsgText(m)));
-    const offset = locateKeys(keys);
-    return { msgs, keys, offset };
+    const byId = new Map(entries.flatMap((entry, i) => entry.messageId ? [[entry.messageId, i]] : []));
+    const ids = msgs.map(messageIdOf);
+    const known = ids.map((id) => id && byId.has(id) ? byId.get(id) : -1);
+    const offset = known.some((i) => i >= 0) ? -1 : locateKeys(keys);
+    const indices = msgs.map((msg, k) => {
+      if (known[k] >= 0) return known[k];
+      if (ids[k] && entries.length && entries.every((entry) => entry.messageId)) return -1;
+      const remembered = entries.findIndex((entry) => entry.userNode === msg);
+      if (remembered >= 0) return remembered;
+      const matches = entries.flatMap((entry, i) => entry.key === keys[k] ? [i] : []);
+      if (matches.length === 1) return matches[0];
+      if (offset >= 0 && msgs.length > 1 && keys.every((key, n) => entries[offset + n]?.key === key)) return offset + k;
+      return -1;
+    });
+    indices.forEach((i, k) => {
+      if (i < 0) return;
+      entries[i].userNode = msgs[k];
+      if (!entries[i].messageId && ids[k]) entries[i].messageId = ids[k];
+    });
+    const first = indices.find((i) => i >= 0);
+    return { msgs, keys, indices, offset: first ?? -1 };
+  }
+
+  function localIndex(w, i) {
+    return w.indices.indexOf(i);
+  }
+
+  function messageIdOf(node) {
+    const id = node.getAttribute('data-message-id') || node.closest('[data-message-id]')?.getAttribute('data-message-id') ||
+      node.querySelector('[data-message-id]')?.getAttribute('data-message-id') ||
+      node.getAttribute('data-chatgpt-selection-message-id') ||
+      node.closest('[data-chatgpt-selection-message-id]')?.getAttribute('data-chatgpt-selection-message-id') ||
+      node.closest('[data-message-role][id]')?.id;
+    if (id) return id;
+    // 新页面的搜索单元可能列出多个消息 ID，不能把第一条当作整轮回答。
+    const selected = Array.from(node.querySelectorAll('[data-chatgpt-selection-message-id]'))
+      .map((message) => message.getAttribute('data-chatgpt-selection-message-id'));
+    const search = node.closest('[data-chatgpt-search-message-ids]') || node.querySelector('[data-chatgpt-search-message-ids]');
+    const ids = new Set(selected.length ? selected : (search?.getAttribute('data-chatgpt-search-message-ids') || '').split(/\s+/).filter(Boolean));
+    return ids.size === 1 ? ids.values().next().value : undefined;
+  }
+
+  let contentVersion = 0;
+  const answerCache = new WeakMap();
+
+  function getRenderedAnswers() {
+    const candidates = Array.from(document.querySelectorAll(ASSISTANT_ROLE_SEL)).filter((node) => !isIgnored(node));
+    // 一轮可能包含思考和正式回答；优先取内部消息，不能用整轮的第一个消息 ID。
+    const messages = candidates.flatMap((node) => {
+      const selected = Array.from(node.querySelectorAll('[data-chatgpt-selection-message-id]'));
+      return selected.length ? selected : [node];
+    });
+    const answers = Array.from(new Set(messages)).filter((node) => !node.querySelector(ASSISTANT_ROLE_SEL));
+    return answers.length ? answers : getAllTurns().filter((turn) => isUserTurn(turn) === false);
+  }
+
+  function answerSections(user, nextUser, rendered = getRenderedAnswers()) {
+    const after = (node, ref) => !!(ref.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const answers = rendered.filter((node) => after(node, user) && (!nextUser || after(nextUser, node)));
+    if (!answers.length) return null;
+    return sectionsFromAnswers(answers);
+  }
+
+  function sectionsFromAnswers(answers) {
+    const sections = [];
+    for (const answer of answers) {
+      const cached = answerCache.get(answer);
+      if (cached?.version === contentVersion) {
+        sections.push(...cached.sections);
+        continue;
+      }
+      const start = sections.length;
+      const messageId = messageIdOf(answer);
+      const bodies = Array.from(answer.querySelectorAll('.markdown, [data-message-content], [data-assistant-markdown], [data-markdown-text-style="assistant-message"]'));
+      const roots = outermostUnique(bodies.length ? bodies : [answer]);
+      const valid = (node) => !node.closest('pre, code, .sr-only, [hidden], [aria-hidden="true"]') && node.getClientRects().length;
+      const headings = roots.flatMap((root) => Array.from(root.querySelectorAll('h1,h2,h3,h4,h5,h6'))).filter(valid);
+      for (const node of headings) {
+        const text = sectionText(node.textContent || '');
+        if (!text) continue;
+        sections.push({ text, level: Number(node.tagName[1]), messageId, node, kind: 'heading' });
+      }
+      answerCache.set(answer, { version: contentVersion, sections: sections.slice(start) });
+    }
+    return sections;
+  }
+
+  function getSections(i, w = getWindow(), rendered) {
+    const entry = entries[i];
+    if (!entry) return [];
+    const answers = rendered || getRenderedAnswers();
+    const k = localIndex(w, i);
+    if (k >= 0 && k < w.msgs.length) {
+      const current = answerSections(w.msgs[k], w.msgs[k + 1], answers);
+      if (current) entry.domSections = current;
+    } else if (entry.sections?.length) {
+      const ids = new Set(entry.sections.map((section) => section.messageId).filter(Boolean));
+      const current = answers.filter((answer) => ids.has(messageIdOf(answer)));
+      if (current.length) entry.domSections = sectionsFromAnswers(current);
+    }
+    const live = (entry.domSections || []).filter((section) => section.node?.isConnected);
+    const cached = entry.sections || [];
+    // 已渲染消息以实际标题为准：Markdown 转义、公式、引用及流式更新会改变标题文本。
+    // 仅未渲染消息使用接口目录，保留多条回答的原始顺序。
+    const renderedIds = new Set(answers.map(messageIdOf).filter(Boolean));
+    const emitted = new Set();
+    const used = new Set();
+    const sections = [];
+    cached.forEach((section) => {
+      if (section.messageId && renderedIds.has(section.messageId)) {
+        if (!emitted.has(section.messageId)) {
+          live.forEach((candidate, index) => {
+            if (candidate.messageId !== section.messageId) return;
+            sections.push(candidate);
+            used.add(index);
+          });
+          emitted.add(section.messageId);
+        }
+        return;
+      }
+      const match = live.findIndex((candidate, index) => !used.has(index) && candidate.text === section.text &&
+        (!section.messageId || !candidate.messageId || section.messageId === candidate.messageId));
+      if (match < 0) sections.push({ ...section });
+      else {
+        used.add(match);
+        sections.push({ ...section, ...live[match] });
+      }
+    });
+    sections.push(...live.filter((_, index) => !used.has(index)));
+    const counts = new Map();
+    return sections.map((section) => {
+      const key = (section.messageId || '') + ':' + section.text;
+      const occurrence = counts.get(key) || 0;
+      counts.set(key, occurrence + 1);
+      return { ...section, occurrence };
+    });
   }
 
   // ---------- 工具 ----------
@@ -320,6 +518,29 @@ export function startNavigator() {
   function scrollElTo(el, block, behavior) {
     el.style.scrollMarginTop = TOP_OFFSET + 'px';
     el.scrollIntoView({ block: block, behavior: behavior || (SMOOTH_SCROLL ? 'smooth' : 'instant') });
+  }
+
+  function isContentMutation(record) {
+    const node = record.target.nodeType === Node.ELEMENT_NODE ? record.target : record.target.parentElement;
+    return !node?.closest('#cgpt-nav-box, #cgpt-nav-toast');
+  }
+
+  // 页面一旦渲染新内容就继续定位，超时只作为没有 DOM 更新时的兜底。
+  function waitForContent(ms) {
+    return new Promise((resolve) => {
+      let frame = 0;
+      const finish = () => {
+        observer.disconnect();
+        clearTimeout(timer);
+        if (frame) cancelAnimationFrame(frame);
+        resolve();
+      };
+      const observer = new MutationObserver((records) => {
+        if (!frame && records.some(isContentMutation)) frame = requestAnimationFrame(finish);
+      });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      const timer = setTimeout(finish, ms);
+    });
   }
 
   function getScrollableAncestors(el) {
@@ -378,6 +599,13 @@ export function startNavigator() {
       const data = await res.json();
       const list = extractUserMessages(data);
       if (seq === loadSeq && id === convId && list.length) {
+        const previous = entries;
+        list.forEach((entry) => {
+          const old = previous.find((candidate) => candidate.messageId && candidate.messageId === entry.messageId);
+          if (old?.domSections) entry.domSections = old.domSections;
+        });
+        if (sectionEntry) sectionEntry = list.find((entry) => entry.messageId === sectionEntry.messageId) || null;
+        if (!sectionEntry) hideSections();
         entries = list;
         apiOk = true;
         lastOffset = 0;
@@ -406,6 +634,7 @@ export function startNavigator() {
     activeIdx = -1;
     lastTargetIdx = -1;
     seekToken++;
+    hideSections();
   }
 
   // ---------- 导航行为 ----------
@@ -415,7 +644,7 @@ export function startNavigator() {
   let seekToken = 0;
 
   // 跳到全局第 i 个提问；如果它当前没渲染，就朝目标方向滚动，直到它被加载出来
-  async function jumpTo(i) {
+  async function jumpTo(i, settle = true) {
     const token = ++seekToken;
     lastTargetIdx = i;
     lastClickTime = Date.now();
@@ -423,28 +652,32 @@ export function startNavigator() {
       if (token !== seekToken) return;
       const w = getWindow();
       if (!w.msgs.length) return toast(diagnose());
-      if (w.offset < 0) return toast(label('mismatch'));
       const len = w.msgs.length;
-      const k = i - w.offset;
-      if (k >= 0 && k < len) {
+      const k = localIndex(w, i);
+      if (k >= 0) {
         const smooth = SMOOTH_SCROLL && n === 0;
         scrollElTo(w.msgs[k], 'start', smooth ? 'smooth' : 'instant');
-        if (!smooth) {
-          // 直接跳转后，等相邻内容渲染、高度稳定，再校正一次位置
-          await sleep(250);
-          if (token !== seekToken) return;
-          const w2 = getWindow();
-          const k2 = i - w2.offset;
-          if (w2.offset >= 0 && k2 >= 0 && k2 < w2.msgs.length) {
-            const top = w2.msgs[k2].getBoundingClientRect().top;
-            if (Math.abs(top - TOP_OFFSET) > 24) scrollElTo(w2.msgs[k2], 'start', 'instant');
-          }
+        if (!smooth && settle) {
+          // 后台校正延迟渲染导致的位置变化，不阻塞后续章节定位。
+          setTimeout(() => {
+            if (token !== seekToken) return;
+            const w2 = getWindow();
+            const k2 = localIndex(w2, i);
+            if (k2 >= 0) {
+              const top = w2.msgs[k2].getBoundingClientRect().top;
+              if (Math.abs(top - TOP_OFFSET) > 24) scrollElTo(w2.msgs[k2], 'start', 'instant');
+            }
+          }, 250);
         }
-        return;
+        return true;
       }
+      const loaded = w.indices.filter((index) => index >= 0);
+      if (!loaded.length) return toast(label('mismatch'));
+      const first = Math.min(...loaded), last = Math.max(...loaded);
+      if (i >= first && i <= last) return toast(label('mismatch'));
       if (n === 0) toast(label('locating'));
-      const dir = k < 0 ? -1 : 1;
-      const gap = k < 0 ? -k : k - (len - 1);
+      const dir = i < first ? -1 : 1;
+      const gap = dir < 0 ? first - i : i - last;
       const c = getScrollableAncestors(w.msgs[0])[0];
       const vh = c.clientHeight || window.innerHeight;
       let avg = vh;
@@ -455,11 +688,72 @@ export function startNavigator() {
         );
       }
       const step = Math.min(Math.max(gap * avg * 0.9, vh * 0.8), vh * 8);
-      const before = c.scrollTop;
+      const rendered = waitForContent(160);
       c.scrollBy({ top: dir * step, behavior: 'instant' });
-      await sleep(c.scrollTop === before ? 500 : 160);
+      await rendered;
     }
     toast(label('timeout'));
+  }
+
+  async function jumpToSection(i, section) {
+    let token = ++seekToken;
+    lastTargetIdx = i;
+    lastClickTime = Date.now();
+    clearTimeout(sectionCloseTimer);
+    const findTarget = () => {
+      // 页面生成的目录项直接绑定节点；文本变化或节点卸载后才重新查找。
+      if (section.node?.isConnected) {
+        if (sectionText(section.node.textContent || '') === section.text) return { target: section, rendered: true };
+      }
+      // 点击时重新检查回答，避免使用流式更新或切换分支前保存的节点。
+      const answers = getRenderedAnswers();
+      const message = section.messageId && answers.find((answer) => messageIdOf(answer) === section.messageId);
+      if (message) {
+        answerCache.delete(message);
+        const current = sectionsFromAnswers([message]);
+        const matches = current.filter((candidate) => candidate.text === section.text);
+        let target = matches[section.occurrence];
+        if (!target) {
+          // 点击接口目录后才渲染的回答，标题可能已被 Markdown 改写。
+          // 只在同一消息的完整章节结构一致时按位置对应，避免跳到别的章节。
+          const cached = (entries[i]?.sections || []).filter((candidate) => candidate.messageId === section.messageId);
+          const original = cached.filter((candidate) => candidate.text === section.text)[section.occurrence];
+          const index = cached.indexOf(original);
+          if (index >= 0 && cached.length === current.length && cached.every((candidate, n) =>
+            candidate.kind === current[n].kind && candidate.level === current[n].level)) target = current[index];
+        }
+        return { target, rendered: true };
+      }
+      const w = getWindow();
+      const k = localIndex(w, i);
+      const user = w.msgs[k];
+      const current = user ? answerSections(user, w.msgs[k + 1], answers) : null;
+      const matches = (current || []).filter((candidate) => candidate.text === section.text &&
+        (!section.messageId || !candidate.messageId || candidate.messageId === section.messageId));
+      return { target: matches[section.occurrence], rendered: !!current };
+    };
+    let result = findTarget();
+    if (result.target?.node?.isConnected) {
+      scrollElTo(result.target.node, 'start', 'instant');
+      return;
+    }
+    // 仅回答尚未渲染时加载所属问题，不通过向下滚动猜测章节位置。
+    if (!result.rendered) {
+      const loading = jumpTo(i, false);
+      token = seekToken;
+      if (!await loading || token !== seekToken) return;
+    }
+    const deadline = Date.now() + 1200;
+    while (Date.now() < deadline) {
+      await waitForContent(Math.min(160, deadline - Date.now()));
+      if (token !== seekToken) return;
+      result = findTarget();
+      if (result.target?.node?.isConnected) {
+        scrollElTo(result.target.node, 'start', 'instant');
+        return;
+      }
+    }
+    if (token === seekToken) toast(label('sectionMissing'));
   }
 
   function goToStart() {
@@ -527,11 +821,11 @@ export function startNavigator() {
       // 连续点击：基于上一次的目标继续走
       target = lastTargetIdx + dir;
     } else if (dir < 0) {
-      target = local >= 0 ? w.offset + local : w.offset - 1;
+      target = local >= 0 ? w.indices[local] : w.indices.find((i) => i >= 0) - 1;
     } else if (local < 0) {
-      target = w.offset + len;
+      target = Math.max(...w.indices) + 1;
     } else {
-      target = w.offset + local;
+      target = w.indices[local];
       // 最后一个提问通常滚不到最顶部：已经在视野上半部分就直接去底部
       if (target === N - 1 && topOf(local) < window.innerHeight * 0.6) target = N;
     }
@@ -551,6 +845,121 @@ export function startNavigator() {
   let activeIdx = -1;
   let scrollRaf = 0;
   let refreshTimer = 0;
+  let sectionEl = null;
+  let sectionList = null;
+  let sectionEntry = null;
+  let sectionSig = '';
+  let sectionCloseTimer = 0;
+
+  function hideSections() {
+    clearTimeout(sectionCloseTimer);
+    sectionEntry = null;
+    sectionSig = '';
+    if (sectionEl) sectionEl.hidden = true;
+    tocEl?.classList.remove('cn-expanded');
+    tocItems.forEach((item) => item.classList.remove('cn-parent'));
+  }
+
+  function scheduleSectionClose() {
+    clearTimeout(sectionCloseTimer);
+    sectionCloseTimer = setTimeout(() => {
+      // Ask 与章节是同一个交互区域；切换焦点、跨越两块菜单都不应关闭。
+      if (tocEl?.matches(':hover, :has(:focus-visible)') || sectionEl?.matches(':hover, :has(:focus-visible)')) return;
+      hideSections();
+    }, 180);
+  }
+
+  function positionSections() {
+    if (!sectionEntry || sectionEl.hidden) return;
+    const i = entries.indexOf(sectionEntry);
+    const item = tocItems[i];
+    if (!item) return hideSections();
+    const rect = item.getBoundingClientRect();
+    const tocRect = tocEl.getBoundingClientRect();
+    if (rect.bottom <= tocRect.top || rect.top >= tocRect.bottom) return hideSections();
+    // 为主目录最终展开宽度预留空间，避免展开动画把子目录推到屏幕外。
+    const left = tocRect.right - Math.min(TOC_WIDTH_HOVER, innerWidth - 32);
+    const beside = left - 12;
+    if (beside >= 96) {
+      sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, beside - 16) + 'px';
+      sectionEl.style.left = beside - parseFloat(sectionEl.style.width) + 'px';
+      sectionEl.style.top = Math.max(16, Math.min(rect.top - 5, innerHeight - sectionEl.offsetHeight - 16)) + 'px';
+    } else {
+      sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, innerWidth - 32) + 'px';
+      sectionEl.style.left = Math.max(16, tocRect.right - parseFloat(sectionEl.style.width)) + 'px';
+      const height = Math.max(26, Math.min(320, tocRect.top - 28));
+      sectionEl.style.maxHeight = height + 'px';
+      sectionEl.style.top = Math.max(16, tocRect.top - sectionEl.offsetHeight - 12) + 'px';
+    }
+  }
+
+  function updateSectionMarker(i, sections) {
+    const item = tocItems[i];
+    if (!item) return;
+    const hasSections = sections.length > 0;
+    item.classList.toggle('cn-has-sections', hasSections);
+    const marker = item.querySelector('.cn-section-marker');
+    if (marker) {
+      marker.hidden = !hasSections;
+      marker.title = label('sections');
+    }
+    item.setAttribute('aria-label', entries[i].text + (hasSections ? ' · ' + label('sections') : ''));
+  }
+
+  function refreshSectionMarkers() {
+    const w = getWindow();
+    const answers = getRenderedAnswers();
+    const renderedEntries = new Set();
+    w.msgs.forEach((message, k) => {
+      const i = w.indices[k];
+      if (i >= 0 && i < entries.length) {
+        renderedEntries.add(i);
+        updateSectionMarker(i, getSections(i, w, answers));
+      }
+    });
+    entries.forEach((entry, i) => {
+      if (!renderedEntries.has(i)) updateSectionMarker(i, entry.sections?.length ? entry.sections : entry.domSections || []);
+    });
+  }
+
+  function refreshSections() {
+    if (!sectionEntry) return;
+    const i = entries.indexOf(sectionEntry);
+    if (i < 0) return hideSections();
+    const sections = getSections(i);
+    updateSectionMarker(i, sections);
+    if (!sections.length) {
+      sectionEl.hidden = true;
+      tocEl.classList.remove('cn-expanded');
+      tocItems.forEach((item) => item.classList.remove('cn-parent'));
+      sectionSig = '';
+      return;
+    }
+    const sig = JSON.stringify(sections.map((section) => [section.text, section.level, section.messageId, section.occurrence]));
+    if (sig !== sectionSig) {
+      sectionSig = sig;
+      sectionList.textContent = '';
+      const minLevel = Math.min(...sections.map((section) => section.level));
+      sections.forEach((section) => {
+        const item = buildTocItem(section.text, i, () => jumpToSection(i, section));
+        item.style.paddingLeft = 8 + Math.min(4, section.level - minLevel) * 12 + 'px';
+        sectionList.appendChild(item);
+      });
+    }
+    sectionEl.hidden = false;
+    sectionEl.setAttribute('aria-label', label('sections'));
+    sectionEl.style.maxHeight = 'min(320px, calc(100vh - 32px))';
+    tocEl.classList.add('cn-expanded');
+    tocItems.forEach((item, index) => item.classList.toggle('cn-parent', index === i));
+    positionSections();
+  }
+
+  function showSections(i) {
+    clearTimeout(sectionCloseTimer);
+    if (sectionEntry !== entries[i]) sectionSig = '';
+    sectionEntry = entries[i];
+    refreshSections();
+  }
 
   function startMarquee(item) {
     const tw = item.firstChild;
@@ -570,7 +979,7 @@ export function startNavigator() {
     t.style.transform = 'translateX(0)';
   }
 
-  function buildTocItem(text, i) {
+  function buildTocItem(text, i, onClick) {
     if (text === PLACEHOLDER) text = label('placeholder');
     const item = document.createElement('div');
     item.className = 'cn-item';
@@ -581,18 +990,50 @@ export function startNavigator() {
     t.textContent = text;
     tw.appendChild(t);
     item.appendChild(tw);
-
+    if (!onClick) {
+      const marker = document.createElement('span');
+      marker.className = 'cn-section-marker';
+      marker.hidden = true;
+      marker.setAttribute('aria-hidden', 'true');
+      const icon = createIcon(['m15 18-6-6 6-6']);
+      icon.setAttribute('width', '13');
+      icon.setAttribute('height', '13');
+      marker.appendChild(icon);
+      item.appendChild(marker);
+    }
+    item.title = text;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    const activate = () => {
+      if (onClick) return onClick();
+      // 提问点击后鼠标仍在本行，不会再次触发 mouseenter；保持回答目录可见。
+      showSections(i);
+      return jumpTo(i);
+    };
     item.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      jumpTo(i);
+      activate();
+    });
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate();
+      } else if (e.key === 'Escape') hideSections();
     });
     // 悬停：等目录展开动画结束后，再测量并滚动显示被截断的文字
     item.addEventListener('mouseenter', () => {
       clearTimeout(item._mt);
       item._mt = setTimeout(() => startMarquee(item), 260);
+      if (!onClick) showSections(i);
     });
-    item.addEventListener('mouseleave', () => stopMarquee(item));
+    item.addEventListener('mouseleave', () => {
+      stopMarquee(item);
+    });
+    if (!onClick) {
+      item.addEventListener('focus', () => showSections(i));
+      item.addEventListener('blur', scheduleSectionClose);
+    }
     return item;
   }
 
@@ -601,7 +1042,7 @@ export function startNavigator() {
     activeIdx = idx;
     tocItems.forEach((it, i) => it.classList.toggle('active', i === idx));
     const it = tocItems[idx];
-    if (it && tocList && !tocEl.matches(':hover')) {
+    if (it && tocList && !tocEl.matches(':hover, :focus-within') && !sectionEntry) {
       const top = it.offsetTop;
       const bottom = top + it.offsetHeight;
       if (top < tocList.scrollTop) tocList.scrollTop = top - 4;
@@ -628,15 +1069,15 @@ export function startNavigator() {
     }
     // 最后一个提问一般滚不到最顶部：只要它已经在视野上半部分，就视为当前位置
     const last = len - 1;
-    const isGlobalLast = w.offset + idx >= N - 1;
-    if (w.offset + last >= N - 1 && top(last) < window.innerHeight * 0.5) idx = last;
+    const isGlobalLast = w.indices[idx] >= N - 1;
+    if (w.indices[last] >= N - 1 && top(last) < window.innerHeight * 0.5) idx = last;
 
     const t0 = top(idx);
     let frac = 0;
     if (idx < last) {
       const end = top(idx + 1);
       if (end > t0) frac = clamp01((limit - t0) / (end - t0));
-    } else if (w.offset + idx >= N - 1) {
+    } else if (w.indices[idx] >= N - 1) {
       // 全局最后一个提问：用最后一轮回复的底部作为终点，滚到最底时进度为 1
       const turns = getAllTurns();
       const lt = turns[turns.length - 1];
@@ -647,7 +1088,7 @@ export function startNavigator() {
       }
     }
     void isGlobalLast;
-    return { idx: w.offset + idx, frac };
+    return { idx: w.indices[idx], frac };
   }
 
   // 根据当前滚动位置计算高亮哪一条，并移动位置指示条
@@ -656,6 +1097,7 @@ export function startNavigator() {
     const w = getWindow();
     if (!w.msgs.length || w.offset < 0) return;
     const pos = computePosition(w);
+    if (pos.idx < 0) return;
     const idx = Math.min(pos.idx, tocItems.length - 1);
     setActive(idx);
   }
@@ -673,8 +1115,23 @@ export function startNavigator() {
       const msgs = getUserMessages();
       const texts = msgs.map(getMsgText);
       const keys = texts.map(normKey);
-      // 接口数据完整时只向后追加（刚发出的新提问）；否则双向合并
-      mergeKeys(keys, texts, !apiOk, apiOk);
+      const ids = msgs.map(messageIdOf);
+      const byId = new Map(entries.flatMap((entry, i) => entry.messageId ? [[entry.messageId, i]] : []));
+      const known = ids.map((id) => byId.get(id) ?? -1);
+      // 已知消息按 ID 合并；附件文字差异不能变成额外问题。
+      if (apiOk && known.some((i) => i >= 0)) {
+        const lastKnown = known.findLastIndex((i) => i >= 0);
+        if (known[lastKnown] === entries.length - 1) {
+          for (let k = lastKnown + 1; k < msgs.length; k++) {
+            if (ids[k] && !byId.has(ids[k])) {
+              byId.set(ids[k], entries.length);
+              entries.push({ key: keys[k], text: texts[k], messageId: ids[k], local: true });
+            }
+          }
+        }
+      } else {
+        mergeKeys(keys, texts, !apiOk, apiOk, ids);
+      }
       // 追加的是临时条目，过一会儿向接口核对一次
       if (apiOk && entries.some((e) => e.local) && reconcileTries < 6 && now - lastReconcile > 3000) {
         reconcileTries++;
@@ -683,8 +1140,10 @@ export function startNavigator() {
       }
     }
 
-    const sig = entries.map((e) => e.key).join('|');
+    const sig = entries.map((e) => (e.messageId || '') + ':' + e.key).join('|');
     if (sig !== tocSig) {
+      hideSections();
+      tocItems.forEach(stopMarquee);
       tocSig = sig;
       tocList.textContent = '';
       tocItems = entries.map((e, i) => {
@@ -695,7 +1154,9 @@ export function startNavigator() {
       activeIdx = -1;
     }
     tocEl.style.display = id && entries.length ? '' : 'none';
+    refreshSectionMarkers();
     updateActive();
+    refreshSections();
   }
 
   function scheduleRefresh() {
@@ -712,6 +1173,7 @@ export function startNavigator() {
     scrollRaf = requestAnimationFrame(() => {
       scrollRaf = 0;
       safe(updateActive, '更新高亮');
+      safe(positionSections, '章节位置');
     });
   }
 
@@ -837,7 +1299,7 @@ export function startNavigator() {
       }
 
       /* 目录 */
-      #cgpt-toc {
+      #cgpt-toc, #cgpt-sections {
         width: ${TOC_WIDTH}px;
         max-height: min(320px, max(80px, calc(100vh - 424px)));
         display: flex;
@@ -851,26 +1313,33 @@ export function startNavigator() {
         overflow: hidden;
         transition: width 0.2s ease;
       }
-      #cgpt-toc:hover { width: ${TOC_WIDTH_HOVER}px; }
-      #cgpt-toc .cn-list {
+      #cgpt-toc:hover, #cgpt-toc:has(:focus-visible), #cgpt-toc.cn-expanded { width: min(${TOC_WIDTH_HOVER}px, calc(100vw - 32px)); }
+      #cgpt-sections {
+        position: fixed;
+        width: ${TOC_WIDTH_HOVER}px;
+        max-height: min(320px, calc(100vh - 32px));
+        transition: none;
+      }
+      #cgpt-sections[hidden] { display: none; }
+      #cgpt-nav-box .cn-list {
         position: relative;
         overflow-y: auto;
         overflow-x: hidden;
         overscroll-behavior: contain; /* 只滚动目录，滚到头也不会带动页面 */
       }
       /* Chrome / Edge / Safari：自定义滚动条样式，同时让它始终可见（不做自动隐藏的悬浮条） */
-      #cgpt-toc .cn-list::-webkit-scrollbar { width: 6px; }
-      #cgpt-toc .cn-list::-webkit-scrollbar-track { background: transparent; }
-      #cgpt-toc .cn-list::-webkit-scrollbar-thumb {
+      #cgpt-nav-box .cn-list::-webkit-scrollbar { width: 6px; }
+      #cgpt-nav-box .cn-list::-webkit-scrollbar-track { background: transparent; }
+      #cgpt-nav-box .cn-list::-webkit-scrollbar-thumb {
         background: var(--cn-muted);
         border-radius: 3px;
       }
-      #cgpt-toc .cn-list::-webkit-scrollbar-thumb:hover { background: var(--cn-fg); }
+      #cgpt-nav-box .cn-list::-webkit-scrollbar-thumb:hover { background: var(--cn-fg); }
       /* Firefox */
       @supports (-moz-appearance: none) {
-        #cgpt-toc .cn-list { scrollbar-width: thin; scrollbar-color: var(--cn-muted) transparent; }
+        #cgpt-nav-box .cn-list { scrollbar-width: thin; scrollbar-color: var(--cn-muted) transparent; }
       }
-      #cgpt-toc .cn-item {
+      #cgpt-nav-box .cn-item {
         height: 26px;
         padding: 0 8px;
         display: flex;
@@ -882,13 +1351,16 @@ export function startNavigator() {
         cursor: pointer;
         user-select: none;
       }
-      #cgpt-toc .cn-item:hover { background: var(--cn-hover); color: var(--cn-fg); }
-      #cgpt-toc .cn-item.active {
+      #cgpt-nav-box .cn-item:hover, #cgpt-nav-box .cn-item:focus-visible, #cgpt-nav-box .cn-item.cn-parent {
+        background: var(--cn-hover);
+        color: var(--cn-fg);
+      }
+      #cgpt-nav-box .cn-item.active {
         color: var(--cn-active);
         border-left-color: var(--cn-active);
         font-weight: 600;
       }
-      #cgpt-toc .cn-tw {
+      #cgpt-nav-box .cn-tw {
         flex: 1;
         min-width: 0;
         overflow: hidden;
@@ -896,7 +1368,16 @@ export function startNavigator() {
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
         mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
       }
-      #cgpt-toc .cn-t { display: inline-block; white-space: nowrap; }
+      #cgpt-nav-box .cn-section-marker {
+        flex: 0 0 13px;
+        display: flex;
+        align-items: center;
+        margin-left: 5px;
+        color: inherit;
+        pointer-events: none;
+      }
+      #cgpt-nav-box .cn-section-marker[hidden] { display: none; }
+      #cgpt-nav-box .cn-t { display: inline-block; white-space: nowrap; }
 
       /* 按钮 */
       #cgpt-btns { display: flex; flex-direction: column; gap: 8px; }
@@ -971,7 +1452,23 @@ export function startNavigator() {
     tocList = document.createElement('div');
     tocList.className = 'cn-list';
     tocEl.appendChild(tocList);
+    tocEl.addEventListener('mouseenter', () => clearTimeout(sectionCloseTimer));
+    tocEl.addEventListener('mouseleave', scheduleSectionClose);
     box.appendChild(tocEl);
+
+    sectionEl = document.createElement('div');
+    sectionEl.id = 'cgpt-sections';
+    sectionEl.hidden = true;
+    sectionList = document.createElement('div');
+    sectionList.className = 'cn-list';
+    sectionEl.appendChild(sectionList);
+    sectionEl.addEventListener('mouseenter', () => clearTimeout(sectionCloseTimer));
+    sectionEl.addEventListener('mouseleave', scheduleSectionClose);
+    sectionEl.addEventListener('focusin', () => clearTimeout(sectionCloseTimer));
+    sectionEl.addEventListener('focusout', scheduleSectionClose);
+    tocEl.addEventListener('transitionend', positionSections);
+    box.appendChild(sectionEl);
+    hideSections();
 
     const btns = document.createElement('div');
     btns.id = 'cgpt-btns';
@@ -996,7 +1493,11 @@ export function startNavigator() {
     window.addEventListener('resize', onScroll);
 
     // 消息变化（发送新提问、切换对话、懒加载、流式输出）时刷新目录
-    new MutationObserver(scheduleRefresh).observe(document.body, {
+    new MutationObserver((records) => {
+      if (!records.some(isContentMutation)) return;
+      contentVersion++;
+      scheduleRefresh();
+    }).observe(document.body, {
       childList: true,
       subtree: true,
       characterData: true,

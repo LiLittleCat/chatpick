@@ -66,7 +66,7 @@ function App() {
       <header className="popup-header">
         <img src="/icon/96.png" width="56" height="56" alt="" />
         <div>
-          <strong>Chatpick</strong>
+          <strong>ChatPick</strong>
           <span>{t.settings}</span>
         </div>
       </header>

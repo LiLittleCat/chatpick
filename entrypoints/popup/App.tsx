@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { SettingsSelect } from './SettingsSelect';
-import { DEFAULT_SETTINGS, normalizeSettings, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
+import { DEFAULT_SETTINGS, normalizeSettings, type ColorSetting, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
 import './App.css';
 
 const translations = {
   en: {
     settings: 'Settings',
-    theme: 'Theme',
+    theme: 'Appearance',
+    colors: 'Colors',
+    siteColors: 'Follow chat colors',
+    defaultColors: 'ChatPick default',
     language: 'Language',
-    auto: 'Follow chat theme',
+    auto: 'Follow chat appearance',
     light: 'Light',
     dark: 'Dark',
     en: 'English',
@@ -16,9 +19,12 @@ const translations = {
   },
   zh: {
     settings: '设置',
-    theme: '主题',
+    theme: '明暗',
+    colors: '配色',
+    siteColors: '跟随网页配色',
+    defaultColors: 'ChatPick 默认',
     language: '语言',
-    auto: '跟随聊天主题',
+    auto: '跟随网页明暗',
     light: '浅色',
     dark: '深色',
     en: 'English',
@@ -28,7 +34,7 @@ const translations = {
 
 function App() {
   const [settings, setSettings] = useState<NavigatorSettings>(DEFAULT_SETTINGS);
-  const [activeSelect, setActiveSelect] = useState<'theme' | 'language' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'theme' | 'colors' | 'language' | null>(null);
 
   useEffect(() => {
     browser.storage.local.get(DEFAULT_SETTINGS)
@@ -76,6 +82,13 @@ function App() {
           options={[{ value: 'auto', label: t.auto }, { value: 'light', label: t.light }, { value: 'dark', label: t.dark }]}
           onChange={(theme) => update({ theme })}
           open={activeSelect === 'theme'} onOpenChange={(open) => setActiveSelect(open ? 'theme' : null)} />
+      </div>
+      <div className="settings-row" style={{ zIndex: activeSelect === 'colors' ? 2 : 1 }}>
+        <label id="colors-label">{t.colors}</label>
+        <SettingsSelect<ColorSetting> labelId="colors-label" value={settings.colors}
+          options={[{ value: 'site', label: t.siteColors }, { value: 'default', label: t.defaultColors }]}
+          onChange={(colors) => update({ colors })}
+          open={activeSelect === 'colors'} onOpenChange={(open) => setActiveSelect(open ? 'colors' : null)} />
       </div>
       <div className="settings-row" style={{ zIndex: activeSelect === 'language' ? 2 : 1 }}>
         <label id="language-label">{t.language}</label>

@@ -33,6 +33,7 @@ export default defineContentScript({
       const next = { ...settings };
       if (changes.theme) next.theme = changes.theme.newValue as NavigatorSettings['theme'];
       if (changes.language) next.language = changes.language.newValue as NavigatorSettings['language'];
+      if (changes.colors) next.colors = changes.colors.newValue as NavigatorSettings['colors'];
       applySettings(next);
     });
   },

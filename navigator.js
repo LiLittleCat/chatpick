@@ -21,7 +21,7 @@ export function startNavigator(motion = {}) {
   const CLAUDE_ROW = '[data-testid="transcript-row"][data-index]';
   const claudeMessageId = (index) => 'claude:' + convId + ':' + index;
 
-  let settings = { theme: 'auto', language: 'en' };
+  let settings = { theme: 'auto', language: 'en', colors: 'site' };
   const labels = {
     en: {
       placeholder: '[Image/attachment]',
@@ -62,10 +62,11 @@ export function startNavigator(motion = {}) {
 
   window.addEventListener('message', (event) => {
     if (event.source !== window || event.data?.source !== 'chatpick:extension' || event.data?.type !== 'settings') return;
-    const { theme, language } = event.data.settings || {};
+    const { theme, language, colors } = event.data.settings || {};
     settings = {
       theme: theme === 'light' || theme === 'dark' ? theme : 'auto',
       language: language === 'zh' ? 'zh' : 'en',
+      colors: colors === 'default' ? 'default' : 'site',
     };
     const buttons = document.querySelectorAll('#cgpt-btns button');
     ['start', 'prev', 'next', 'bottom'].forEach((key, i) => {
@@ -1550,8 +1551,8 @@ export function startNavigator(motion = {}) {
   }
 
   // 读取页面主题：优先看 <html> 上的 dark/light 标记，其次背景色亮度，最后系统偏好
-  function detectTheme() {
-    if (settings.theme === 'light' || settings.theme === 'dark') return settings.theme;
+  function detectTheme(followPage = false) {
+    if (!followPage && (settings.theme === 'light' || settings.theme === 'dark')) return settings.theme;
     const root = document.documentElement;
     if (root.classList.contains('dark')) return 'dark';
     if (root.classList.contains('light')) return 'light';
@@ -1590,6 +1591,64 @@ export function startNavigator(motion = {}) {
       console.warn('[ChatGPT 对话导航] 读取主题失败，使用浅色：', err);
     }
     if (box.getAttribute('data-theme') !== t) box.setAttribute('data-theme', t);
+    applySiteColors(box, t);
+  }
+
+  // 面板读取站点语义色，高亮优先读取品牌色；通用链接色不能覆盖站点身份。
+  const siteColorTokens = isDeepseek ? {
+    bg: ['--dsw-alias-bg-layer-1'],
+    fg: ['--dsw-alias-label-primary'],
+    muted: ['--dsw-alias-label-secondary'],
+    border: ['--dsw-alias-border-l2'],
+    track: ['--dsw-alias-border-l3'],
+    hover: ['--dsw-alias-interactive-bg-hover', '--dsw-alias-bg-layer-2'],
+    active: ['--dsw-alias-brand-text', '--dsw-alias-brand-primary', '--color-primary'],
+  } : isClaude ? {
+    bg: ['--cds-surface-popover', '--cds-surface-3', '--bg-000'],
+    fg: ['--cds-text-primary', '--text-100'],
+    muted: ['--cds-text-secondary', '--text-300'],
+    border: ['--cds-border', '--border-300'],
+    track: ['--cds-border-strong', '--border-200'],
+    hover: ['--cds-bg-neutral-hover', '--bg-200'],
+    active: ['--cds-fill-brand', '--fill-brand', '--accent-brand', '--brand-200'],
+  } : {
+    bg: ['--app-color-background-elevated-primary-opaque', '--app-color-background-elevated-primary', '--main-surface-secondary', '--color-token-main-surface-secondary'],
+    fg: ['--app-color-text-primary', '--text-primary', '--color-text-primary', '--color-token-text-primary'],
+    muted: ['--app-color-text-secondary', '--text-secondary', '--color-text-secondary', '--color-token-text-secondary'],
+    border: ['--app-color-border', '--border-light', '--color-border-light'],
+    track: ['--app-color-border-heavy', '--border-medium', '--color-border-heavy'],
+    hover: ['--color-background-primary-soft-hover', '--surface-hover', '--color-token-surface-hover'],
+    active: ['--brand-color', '--brand-green'],
+  };
+
+  function applySiteColors(box, theme) {
+    const pageStyle = getComputedStyle(box);
+    const sameAppearance = theme === detectTheme(true);
+    for (const [key, tokens] of Object.entries(siteColorTokens)) {
+      let color = '';
+      if (settings.colors === 'site' && (sameAppearance || key === 'active')) {
+        for (const token of tokens) {
+          const value = pageStyle.getPropertyValue(token).trim();
+          if (!value) continue;
+          // Claude 的旧版主题使用不带 hsl() 的 HSL 分量。
+          const candidate = CSS.supports('color', value) ? value : `hsl(${value})`;
+          if (CSS.supports('color', candidate) && !['transparent', 'currentcolor', 'inherit', 'initial', 'unset'].includes(candidate.toLowerCase())) {
+            color = candidate;
+            break;
+          }
+        }
+      }
+      // 官网未暴露品牌变量时仍保留各站点的颜色，不借用统一的蓝色链接。
+      if (!color && key === 'active' && settings.colors === 'site') {
+        color = isClaude ? (theme === 'dark' ? '#d97757' : '#c6613f')
+          : isDeepseek ? (theme === 'dark' ? '#679efe' : '#306eff')
+            : (theme === 'dark' ? '#19c37d' : '#10a37f');
+      }
+      const property = '--cn-' + key;
+      if (color) {
+        if (box.style.getPropertyValue(property) !== color) box.style.setProperty(property, color);
+      } else box.style.removeProperty(property);
+    }
   }
 
   function addStyle() {
@@ -1699,7 +1758,6 @@ export function startNavigator(motion = {}) {
         cursor: pointer;
         user-select: none;
       }
-      #cgpt-sections .cn-section-root { color: var(--cn-fg); font-weight: 500; }
       #cgpt-sections .cn-child { position: relative; height: 24px; font-size: 11.5px; }
       #cgpt-sections .cn-child::before {
         content: '';
@@ -1897,9 +1955,10 @@ export function startNavigator(motion = {}) {
     const themeObserver = new MutationObserver(onTheme);
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'data-theme', 'data-color-scheme', 'data-mode', 'style'],
+      attributeFilter: ['class', 'data-theme', 'data-color-scheme', 'data-mode', 'data-accent-color', 'data-chat-theme', 'style'],
     });
     themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+    themeObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mq) {
       if (mq.addEventListener) mq.addEventListener('change', onTheme);

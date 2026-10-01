@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/motion/select';
+import { SettingsSelect } from './SettingsSelect';
 import { DEFAULT_SETTINGS, normalizeSettings, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
 import './App.css';
 
@@ -8,7 +8,7 @@ const translations = {
     settings: 'Settings',
     theme: 'Theme',
     language: 'Language',
-    auto: 'Follow ChatGPT',
+    auto: 'Follow chat theme',
     light: 'Light',
     dark: 'Dark',
     en: 'English',
@@ -18,7 +18,7 @@ const translations = {
     settings: '设置',
     theme: '主题',
     language: '语言',
-    auto: '跟随 ChatGPT',
+    auto: '跟随聊天主题',
     light: '浅色',
     dark: '深色',
     en: 'English',
@@ -43,7 +43,7 @@ function App() {
         document.documentElement.classList.toggle('dark', settings.theme === 'dark');
         return;
       }
-      // The page navigator already resolves ChatGPT's theme in auto mode.
+      // The page navigator already resolves the chat page's theme in auto mode.
       browser.tabs.query({ active: true, currentWindow: true })
         .then(([tab]) => tab?.id ? browser.tabs.sendMessage(tab.id, { type: 'chatpick:get-theme' }) : null)
         .then((theme) => document.documentElement.classList.toggle('dark', theme === 'dark' || (theme !== 'light' && media.matches)))
@@ -72,26 +72,17 @@ function App() {
       </header>
       <div className="settings-row" style={{ zIndex: activeSelect === 'theme' ? 2 : 1 }}>
         <label id="theme-label">{t.theme}</label>
-        <Select value={settings.theme} onValueChange={(theme) => update({ theme: theme as ThemeSetting })}
-          open={activeSelect === 'theme'} onOpenChange={(open) => setActiveSelect(open ? 'theme' : null)}>
-          <SelectTrigger className="settings-select"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">{t.auto}</SelectItem>
-            <SelectItem value="light">{t.light}</SelectItem>
-            <SelectItem value="dark">{t.dark}</SelectItem>
-          </SelectContent>
-        </Select>
+        <SettingsSelect<ThemeSetting> labelId="theme-label" value={settings.theme}
+          options={[{ value: 'auto', label: t.auto }, { value: 'light', label: t.light }, { value: 'dark', label: t.dark }]}
+          onChange={(theme) => update({ theme })}
+          open={activeSelect === 'theme'} onOpenChange={(open) => setActiveSelect(open ? 'theme' : null)} />
       </div>
       <div className="settings-row" style={{ zIndex: activeSelect === 'language' ? 2 : 1 }}>
         <label id="language-label">{t.language}</label>
-        <Select value={settings.language} onValueChange={(language) => update({ language: language as LanguageSetting })}
-          open={activeSelect === 'language'} onOpenChange={(open) => setActiveSelect(open ? 'language' : null)}>
-          <SelectTrigger className="settings-select"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="en">{t.en}</SelectItem>
-            <SelectItem value="zh">{t.zh}</SelectItem>
-          </SelectContent>
-        </Select>
+        <SettingsSelect<LanguageSetting> labelId="language-label" value={settings.language}
+          options={[{ value: 'en', label: t.en }, { value: 'zh', label: t.zh }]}
+          onChange={(language) => update({ language })}
+          open={activeSelect === 'language'} onOpenChange={(open) => setActiveSelect(open ? 'language' : null)} />
       </div>
     </main>
   );

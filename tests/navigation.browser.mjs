@@ -9,7 +9,7 @@ const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwrig
 const root = path.resolve(import.meta.dirname, '..');
 const source = process.env.CHATPICK_BUILT
   ? fs.readFileSync(path.join(root, '.output/chrome-mv3/content-scripts/navigator.js'), 'utf8')
-  : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator()', 'function startNavigator()') + '\nstartNavigator();';
+  : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator(', 'function startNavigator(') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {
   const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];

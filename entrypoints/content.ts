@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS, normalizeSettings, type NavigatorSettings } from '../settings';
 
 export default defineContentScript({
-  matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*'],
+  matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*'],
   runAt: 'document_idle',
   main() {
     let settings = DEFAULT_SETTINGS;

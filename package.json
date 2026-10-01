@@ -1,6 +1,6 @@
 {
   "name": "chatpick",
-  "description": "Navigate ChatGPT conversations by question",
+  "description": "Navigate ChatGPT, Claude and DeepSeek conversations by question",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -13,16 +13,17 @@
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "test:navigation": "node tests/navigation.browser.mjs",
+    "test:claude": "node tests/claude.browser.mjs",
+    "test:deepseek": "node tests/deepseek.browser.mjs",
+    "test:routes": "node tests/routes.browser.mjs",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
     "motion": "^13.4.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

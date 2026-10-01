@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'ChatPick',
-    description: 'Navigate ChatGPT conversations by question',
+    description: 'Navigate ChatGPT, Claude and DeepSeek conversations by question',
     permissions: ['storage'],
     icons: {
       16: 'icon/16.png',

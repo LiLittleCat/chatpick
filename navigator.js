@@ -11,7 +11,7 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-export function startNavigator(motion = {}) {
+export function startNavigator(motion = {}, adapter = null) {
 
   const isClaude = location.hostname === 'claude.ai';
   const isDeepseek = location.hostname === 'chat.deepseek.com';
@@ -232,10 +232,18 @@ export function startNavigator(motion = {}) {
     return true;
   }
 
-  function sectionText(text) {
-    const decoder = document.createElement('textarea');
-    decoder.innerHTML = text;
-    return decoder.value.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+  function sectionText(text, encoded = false) {
+    // DOM text is already decoded. Avoid HTML sinks: Gemini enforces Trusted Types.
+    if (encoded) {
+      const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', ndash: '–', mdash: '—', hellip: '…', copy: '©', reg: '®', trade: '™' };
+      text = text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (entity, name) => {
+        if (name[0] !== '#') return named[name] ?? entity;
+        const hex = name[1].toLowerCase() === 'x';
+        const point = parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+        return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : '\ufffd';
+      });
+    }
+    return text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
       .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
       .replace(/[*_`~]/g, '').replace(/\s+/g, ' ').trim();
   }
@@ -257,7 +265,7 @@ export function startNavigator(motion = {}) {
       const heading = line.match(/^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/);
       const setext = i + 1 < lines.length && /^ {0,3}(=+|-+)\s*$/.test(lines[i + 1]) && line.trim();
       if (heading || setext) {
-        const title = sectionText(heading ? heading[2] : line);
+        const title = sectionText(heading ? heading[2] : line, true);
         if (title) headings.push({ text: title, level: heading ? heading[1].length : lines[i + 1].trim()[0] === '=' ? 1 : 2, messageId, kind: 'heading' });
         if (setext) i++;
         continue;
@@ -387,6 +395,7 @@ export function startNavigator(motion = {}) {
   }
 
   function turnOf(node) {
+    if (adapter) return node;
     if (isClaude) return node.closest(CLAUDE_ROW) || node;
     if (isDeepseek) return node.closest(DEEPSEEK_ROW) || node;
     return node.closest('[data-chatgpt-search-unit-key]') || node.closest('[data-content-search-unit-key]') ||
@@ -406,6 +415,13 @@ export function startNavigator(motion = {}) {
   }
 
   function getAllTurns() {
+    if (adapter) {
+      const turns = [...adapter.users(), ...adapter.answers()]
+        .filter(node => isRenderedTurn(node) && !previousChatNodes.has(node))
+        .sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+      turns.forEach(node => currentVirtualRows.add(node));
+      return turns;
+    }
     let turns = Array.from(document.querySelectorAll(TURN_SEL)).filter((n) => !isIgnored(n) && isRenderedTurn(n));
     if (!turns.length) {
       turns = Array.from(document.querySelectorAll('main article')).filter((n) => !isIgnored(n) && isRenderedTurn(n));
@@ -423,13 +439,13 @@ export function startNavigator(motion = {}) {
   function getUserMessages() {
     const belongsToCurrentChat = (node) => {
       const id = messageIdOf(node);
-      if (isVirtualSite && previousChatNodes.has(node)) return false;
+      if ((isVirtualSite || adapter) && previousChatNodes.has(node)) return false;
       return id ? !previousChatIds.has(id) : !previousChatNodes.has(node);
     };
-    const byRole = Array.from(document.querySelectorAll(USER_ROLE_SEL))
+    const byRole = (adapter ? adapter.users() : Array.from(document.querySelectorAll(USER_ROLE_SEL)))
       .filter((n) => !isIgnored(n))
       .map(turnOf).filter((node) => isRenderedTurn(node) && belongsToCurrentChat(node));
-    if (byRole.length) return outermostUnique(byRole);
+    if (byRole.length || adapter) return outermostUnique(byRole);
 
     const turns = getAllTurns();
     if (!turns.length) return [];
@@ -441,6 +457,7 @@ export function startNavigator(motion = {}) {
   }
 
   function getMsgText(turn) {
+    if (adapter) return (adapter.text(turn) || label('placeholder')).slice(0, 300);
     const node = isDeepseek ? turn.querySelector('.ds-collapsible-text') || turn : turn.matches(USER_ROLE_SEL) ? turn : turn.querySelector(USER_ROLE_SEL) || turn;
     let t = (node.textContent || '').replace(/\s+/g, ' ').trim();
     t = t.replace(/^(you said:?|你说[:：]?)\s*/i, '');
@@ -480,6 +497,7 @@ export function startNavigator(motion = {}) {
   }
 
   function messageIdOf(node) {
+    if (adapter) return adapter.messageId(node);
     if (isDeepseek) {
       const key = node.closest(DEEPSEEK_ROW)?.getAttribute('data-virtual-list-item-key');
       return key ? deepseekMessageId(key) : undefined;
@@ -506,6 +524,11 @@ export function startNavigator(motion = {}) {
   const answerCache = new WeakMap();
 
   function getRenderedAnswers() {
+    if (adapter) return adapter.answers().filter(node => {
+      if (!isRenderedTurn(node) || previousChatNodes.has(node)) return false;
+      currentVirtualRows.add(node);
+      return true;
+    });
     const candidates = Array.from(document.querySelectorAll(ASSISTANT_ROLE_SEL)).filter((node) => !isIgnored(node) && isRenderedTurn(node) && (!isVirtualSite || !previousChatNodes.has(turnOf(node))));
     // 一轮可能包含思考和正式回答；优先取内部消息，不能用整轮的第一个消息 ID。
     const messages = candidates.flatMap((node) => {
@@ -520,7 +543,11 @@ export function startNavigator(motion = {}) {
     const after = (node, ref) => !!(ref.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
     const index = isVirtualSite ? virtualTurnIndex(user) : -1;
     const nextIndex = entries.find((entry) => entry.turnIndex > index)?.turnIndex ?? Infinity;
-    const answers = rendered.filter((node) => isVirtualSite
+    const userOrder = adapter?.order(user);
+    const nextOrder = adapter ? entries.find(entry => entry.order > userOrder)?.order ?? Infinity : null;
+    const answers = rendered.filter((node) => adapter
+      ? adapter.order(node) > userOrder && adapter.order(node) < nextOrder
+      : isVirtualSite
       ? virtualTurnIndex(node) > index && virtualTurnIndex(node) < nextIndex
       : after(node, user) && (!nextUser || after(nextUser, node)));
     if (!answers.length) return null;
@@ -537,9 +564,9 @@ export function startNavigator(motion = {}) {
       }
       const start = sections.length;
       const messageId = messageIdOf(answer);
-      const bodies = Array.from(answer.querySelectorAll(isDeepseek ? '.ds-assistant-message-main-content' : '.standard-markdown, .progressive-markdown, .markdown, [data-message-content], [data-assistant-markdown], [data-markdown-text-style="assistant-message"]'));
-      const roots = outermostUnique(bodies.length ? bodies : isVirtualSite ? [] : [answer]);
-      const valid = (node) => !node.closest('pre, code, .sr-only, [hidden], [aria-hidden="true"]') && node.getClientRects().length;
+      const bodies = adapter ? adapter.answerRoots(answer) : Array.from(answer.querySelectorAll(isDeepseek ? '.ds-assistant-message-main-content' : '.standard-markdown, .progressive-markdown, .markdown, [data-message-content], [data-assistant-markdown], [data-markdown-text-style="assistant-message"]'));
+      const roots = outermostUnique(bodies.length ? bodies : isVirtualSite || adapter ? [] : [answer]);
+      const valid = (node) => !node.closest('pre, code, .sr-only, .cdk-visually-hidden, .thinking-container, .phase-thinking, [hidden], [aria-hidden="true"]') && node.getClientRects().length;
       const headings = roots.flatMap((root) => Array.from(root.querySelectorAll('h1,h2,h3,h4,h5,h6'))).filter(valid);
       for (const node of headings) {
         const text = sectionText(node.textContent || '');
@@ -558,7 +585,10 @@ export function startNavigator(motion = {}) {
     const k = localIndex(w, i);
     if (k >= 0 && k < w.msgs.length) {
       const current = answerSections(w.msgs[k], w.msgs[k + 1], answers);
-      if (current) entry.domSections = current;
+      if (current) {
+        entry.domSections = current;
+        if (adapter) entry.sections = current.map(({ node, ...section }) => ({ ...section, scrollTop: contentScrollTop(node) }));
+      }
     } else if (entry.sections?.length) {
       const ids = new Set(entry.sections.map((section) => section.messageId).filter(Boolean));
       const current = answers.filter((answer) => ids.has(messageIdOf(answer)));
@@ -686,6 +716,11 @@ export function startNavigator(motion = {}) {
     return list;
   }
 
+  function contentScrollTop(node) {
+    const scroller = getScrollableAncestors(node)[0];
+    return scroller.scrollTop + node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - TOP_OFFSET;
+  }
+
   // ---------- 会话数据：接口 + DOM 合并 ----------
 
   let convId = null;
@@ -699,6 +734,7 @@ export function startNavigator(motion = {}) {
   let tokenCache = { t: '', exp: 0 };
 
   function getConvId() {
+    if (adapter) return adapter.conversationId();
     // 项目及自定义 GPT 的详情页共用 /g/:slug/c/:id；不匹配它们的入口页。
     const pattern = isDeepseek ? /^\/a\/chat\/s\/([0-9a-zA-Z-]{8,})\/?$/
       : isClaude ? /^\/chat\/([0-9a-zA-Z-]{8,})\/?$/
@@ -718,6 +754,7 @@ export function startNavigator(motion = {}) {
   }
 
   async function loadApi() {
+    if (adapter) return;
     if (apiLoading || !convId) return;
     const request = new AbortController();
     apiRequest = request;
@@ -787,7 +824,7 @@ export function startNavigator(motion = {}) {
     if (convId) {
       previousConvId = convId;
       previousChatIds = new Set(entries.map((entry) => entry.messageId).filter(Boolean));
-      previousChatNodes = isVirtualSite ? currentVirtualRows : new WeakSet(entries.map((entry) => entry.userNode).filter(Boolean));
+      previousChatNodes = isVirtualSite || adapter ? currentVirtualRows : new WeakSet(entries.map((entry) => entry.userNode).filter(Boolean));
     }
     // 从首页返回同一个聊天时，网站可能直接复用原来的消息节点。
     if (id && id === previousConvId) {
@@ -898,8 +935,19 @@ export function startNavigator(motion = {}) {
       clearToast();
       return true;
     }
+    const targetId = adapter ? entries[i]?.messageId : null;
+    if (adapter && !entries[i]?.userNode?.isConnected && Number.isFinite(entries[i]?.scrollTop)) {
+      const reference = getAllTurns()[0];
+      if (reference) {
+        const rendered = waitForContent(250);
+        getScrollableAncestors(reference)[0].scrollTo({ top: entries[i].scrollTop, behavior: 'instant' });
+        await rendered;
+      }
+    }
     for (let n = 0; n < 60; n++) {
       if (token !== seekToken) return;
+      if (targetId) i = entries.findIndex(entry => entry.messageId === targetId);
+      if (i < 0) return;
       const w = getWindow();
       if (!w.msgs.length) return toast(diagnose());
       const len = w.msgs.length;
@@ -948,11 +996,13 @@ export function startNavigator(motion = {}) {
   }
 
   async function jumpToSection(i, section) {
+    const questionId = adapter ? entries[i]?.messageId : null;
     let token = ++seekToken;
     lastTargetIdx = i;
     lastClickTime = Date.now();
     clearTimeout(sectionCloseTimer);
     const findTarget = () => {
+      if (questionId) i = entries.findIndex(entry => entry.messageId === questionId);
       // 页面生成的目录项直接绑定节点；文本变化或节点卸载后才重新查找。
       if (section.node?.isConnected) {
         if (sectionText(section.node.textContent || '') === section.text) return { target: section, rendered: true };
@@ -1001,6 +1051,14 @@ export function startNavigator(motion = {}) {
       const row = await seekVirtualTurn(index, token);
       if (!row || token !== seekToken) return;
     }
+    if (adapter && !findTarget().rendered && Number.isFinite(section.scrollTop)) {
+      const reference = getAllTurns()[0];
+      if (reference) {
+        const rendered = waitForContent(250);
+        getScrollableAncestors(reference)[0].scrollTo({ top: section.scrollTop, behavior: 'instant' });
+        await rendered;
+      }
+    }
     const deadline = Date.now() + 1200;
     while (Date.now() < deadline) {
       await waitForContent(Math.min(160, deadline - Date.now()));
@@ -1015,8 +1073,20 @@ export function startNavigator(motion = {}) {
     if (token === seekToken) toast(label('sectionMissing'));
   }
 
-  function goToStart() {
+  async function goToStart() {
     lastTargetIdx = -1;
+    if (adapter) {
+      const token = ++seekToken;
+      const first = getAllTurns()[0];
+      if (!first) return toast(diagnose());
+      const scrollers = getScrollableAncestors(first);
+      for (let pass = 0; pass < 8 && token === seekToken; pass++) {
+        scrollers.forEach(scroller => scroller.scrollTo({ top: 0, behavior: 'instant' }));
+        await waitForContent(160);
+        if (scrollers.every(scroller => scroller.scrollTop < 2)) break;
+      }
+      return;
+    }
     if (entries.length) return jumpTo(0);
     const first = getAllTurns()[0] || getUserMessages()[0];
     if (!first) return toast(diagnose());
@@ -1416,7 +1486,7 @@ export function startNavigator(motion = {}) {
     const now = Date.now();
 
     // 接口：首次读取，失败后每 15 秒重试一次
-    if (convId && !apiOk && !apiLoading && now - lastApiFetch > 15000) loadApi();
+    if (!adapter && convId && !apiOk && !apiLoading && now - lastApiFetch > 15000) loadApi();
 
     // 首次加载先显示完整骨架，接口完成后一次呈现目录；失败再用页面内容。
     if (!apiLoading) {
@@ -1427,7 +1497,18 @@ export function startNavigator(motion = {}) {
       const byId = new Map(entries.flatMap((entry, i) => entry.messageId ? [[entry.messageId, i]] : []));
       const known = ids.map((id) => byId.get(id) ?? -1);
       // 已知消息按 ID 合并；附件文字差异不能变成额外问题。
-      if (isVirtualSite) {
+      if (adapter) {
+        // Stable IDs and ordering also cover disjoint windows in virtualized chats.
+        msgs.forEach((node, k) => {
+          currentVirtualRows.add(node);
+          const existing = entries.find(entry => entry.messageId === ids[k]);
+          if (existing) {
+            if (existing.key !== keys[k]) { existing.sections = []; existing.domSections = []; }
+            Object.assign(existing, { key: keys[k], text: texts[k], userNode: node, order: adapter.order(node), scrollTop: contentScrollTop(node) });
+          } else entries.push({ key: keys[k], text: texts[k], messageId: ids[k], userNode: node, order: adapter.order(node), scrollTop: contentScrollTop(node) });
+        });
+        entries.sort((a, b) => a.order - b.order);
+      } else if (isVirtualSite) {
         msgs.forEach((node, k) => {
           const turnIndex = virtualTurnIndex(node);
           if (!ids[k]) return;
@@ -1595,7 +1676,7 @@ export function startNavigator(motion = {}) {
   }
 
   // 面板读取站点语义色，高亮优先读取品牌色；通用链接色不能覆盖站点身份。
-  const siteColorTokens = isDeepseek ? {
+  const siteColorTokens = adapter ? adapter.colorTokens : isDeepseek ? {
     bg: ['--dsw-alias-bg-layer-1'],
     fg: ['--dsw-alias-label-primary'],
     muted: ['--dsw-alias-label-secondary'],
@@ -1626,7 +1707,7 @@ export function startNavigator(motion = {}) {
     const sameAppearance = theme === detectTheme(true);
     for (const [key, tokens] of Object.entries(siteColorTokens)) {
       let color = '';
-      if (settings.colors === 'site' && (sameAppearance || key === 'active')) {
+      if (settings.colors === 'site' && (sameAppearance || key === 'active' && adapter?.name !== 'Grok')) {
         for (const token of tokens) {
           const value = pageStyle.getPropertyValue(token).trim();
           if (!value) continue;
@@ -1640,7 +1721,7 @@ export function startNavigator(motion = {}) {
       }
       // 官网未暴露品牌变量时仍保留各站点的颜色，不借用统一的蓝色链接。
       if (!color && key === 'active' && settings.colors === 'site') {
-        color = isClaude ? (theme === 'dark' ? '#d97757' : '#c6613f')
+        color = adapter ? adapter.accent(theme === 'dark') : isClaude ? (theme === 'dark' ? '#d97757' : '#c6613f')
           : isDeepseek ? (theme === 'dark' ? '#679efe' : '#306eff')
             : (theme === 'dark' ? '#19c37d' : '#10a37f');
       }

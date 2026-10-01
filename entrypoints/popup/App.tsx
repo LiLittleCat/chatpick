@@ -11,6 +11,7 @@ const translations = {
     siteColors: 'Follow chat colors',
     defaultColors: 'ChatPick default',
     language: 'Language',
+    privacy: 'Privacy policy',
     auto: 'Follow chat appearance',
     light: 'Light',
     dark: 'Dark',
@@ -24,6 +25,7 @@ const translations = {
     siteColors: '跟随网页配色',
     defaultColors: 'ChatPick 默认',
     language: '语言',
+    privacy: '隐私政策',
     auto: '跟随网页明暗',
     light: '浅色',
     dark: '深色',
@@ -97,6 +99,11 @@ function App() {
           onChange={(language) => update({ language })}
           open={activeSelect === 'language'} onOpenChange={(open) => setActiveSelect(open ? 'language' : null)} />
       </div>
+      <footer className="popup-footer">
+        <a href={browser.runtime.getURL('/privacy.html') + `?lang=${settings.language}`} target="_blank" rel="noopener noreferrer">
+          {t.privacy}
+        </a>
+      </footer>
     </main>
   );
 }

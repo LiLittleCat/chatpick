@@ -23,7 +23,7 @@ try {
     await page.addInitScript(() => {
       const listeners = [];
       window.browser = {
-        runtime: { id: 'fixture', onMessage: { addListener() {} } },
+        runtime: { id: 'fixture', getURL: path => new URL(path, 'https://chatpick.test').href, onMessage: { addListener() {} } },
         tabs: { query: async () => [{ id: 1 }], sendMessage: async () => 'light' },
         storage: {
           local: {

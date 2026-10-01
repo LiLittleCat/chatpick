@@ -1,36 +1,72 @@
 # ChatPick
 
-ChatPick brings question navigation to ChatGPT, Claude and DeepSeek in a Chrome extension. It provides the original question list, jump navigation, four buttons, scroll highlighting, theme-aware colors, and DOM fallback when the conversation API is unavailable. Click the extension icon to set the theme and language; English is the default. The settings popup uses custom controls animated directly with Motion, including keyboard navigation and reduced-motion support.
+[简体中文](README.zh-CN.md)
 
-Navigation runs only on conversation detail pages: ChatGPT `/c/:id` and `/g/:gpt-or-project/c/:id`, Claude `/chat/:id` (including project chats), and DeepSeek `/a/chat/s/:id`. Home, new-chat, project overview, GPT landing, settings and shared-link pages do not display navigation or read conversation history. Entering a chat enables it without a reload; leaving removes the UI, disconnects content observers, cancels history requests and releases DeepSeek's native navigation. The scripts retain lightweight route listeners on the supported sites for these transitions. Run `pnpm test:routes` after building to verify route scope and SPA transitions.
+Navigate long ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, and Qwen conversations by question and answer section.
 
-The **Colors** setting defaults to **Follow chat colors**, using the current site's surface, text, border, hover and accent tokens. **ChatPick default** restores the original neutral panels and green highlight. It updates when the site changes its theme, with default colors retained wherever a site token is unavailable. The **Appearance** setting independently controls light/dark mode; when forced to differ from the page, panels retain that appearance while the accent follows the site. Settings changes apply immediately to open chats. Run `pnpm test:colors` after building to verify color updates, settings persistence, appearance overrides and fallback.
+ChatPick is a Chrome extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation.
 
-Highlights use each site's brand color: ChatGPT green, Claude orange and DeepSeek blue. Brand variables take priority over generic links and interaction accents, which can be blue on all three sites. When brand variables are missing, the navigator uses a fallback for that site. Run `pnpm test:brand-colors` to check this distinction.
+## Features
 
-## Test locally
+- **Question navigation** — Browse your questions and jump to the one you need, even when the same question appears more than once.
+- **Answer sections** — Hover a question to see its answer's headings, then select a section to jump to it.
+- **Quick controls** — Go to the start, previous question, next question, or bottom. The directory highlights your position as you scroll.
+- **Colors that fit your chat** — Follow the website's appearance, with highlights that match each website, or choose ChatPick's default colors.
+- **Comfortable motion** — Subtle interface animations respect your reduced-motion preference. Content jumps remain instant.
+- **English and Chinese** — Change the interface language from the settings panel.
+
+## Supported chats
+
+| Website | Conversations |
+| --- | --- |
+| ChatGPT | Regular chats, project chats, and custom GPT chats |
+| Claude | Regular chats and chats within projects |
+| DeepSeek | Saved chats |
+| Gemini | Saved chats |
+| Grok | Saved chats |
+| Perplexity | Saved search conversations |
+| Qwen | Saved chats, including chats within projects |
+
+Navigation appears on conversation pages. Home pages, project overviews, settings, and shared links are excluded. Answers without headings do not have a section menu. If some history is unavailable, the directory may show only messages already loaded on the page.
+
+## Install locally
+
+With Node.js 22.12+ and pnpm installed, run these commands in the project directory:
 
 ```sh
 pnpm install
 pnpm build
 ```
 
-Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the `.output/chrome-mv3` directory. Disable the original Tampermonkey script to avoid two navigators on the same page. Open or reload a conversation at `https://chatgpt.com/` or `https://claude.ai/` or `https://chat.deepseek.com/`, try the right-hand navigation, then click the ChatPick toolbar icon to change theme and language. Changes apply to the open page without a reload.
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Choose **Load unpacked** and select `.output/chrome-mv3`.
+3. Open or reload a supported chat and use the navigator on the right.
+4. Select the ChatPick toolbar icon to open settings.
 
-Questions with answer sections show a small left chevron (`<`) at the end of the row, matching the row's text color. Hover a question to open its answer's section list beside the navigator. Only actual H1–H6 headings become section links, with indentation for nested levels. Bold prose and list items are excluded; answers without headings do not show a section list. Click a section to jump to it immediately when it is already rendered; navigation uses instant scrolling, with content-driven waits when older messages need to load. The list follows streamed updates and shares the navigator's theme. For older answers that are not rendered yet, section links come from the conversation API; clicking one locates its question and waits briefly for the answer to render. If the section cannot be matched, the navigator reports that instead of scrolling down through the conversation. When the API is unavailable, sections are available for rendered answers and those already discovered from the page.
+If you used an earlier navigation userscript, disable it before installing ChatPick. A Chrome Web Store installation link will be added after publication.
 
-The extension only injects into `chatgpt.com`, `chat.openai.com`, `claude.ai`, and `chat.deepseek.com` and requests the `storage` permission for its settings. It reads the current conversation through each site's existing session in the page context. Claude uses the current organization and chat endpoint, follows the active message branch, and maps rendered transcript rows by their message sequence numbers so repeated questions remain distinct. If the endpoint fails, it retains messages discovered while scrolling in sequence order. Claude's virtualized history is located by scrolling toward the target message sequence and refining the position as rows render.
+## Settings
 
-For development, run `pnpm dev`. Type-check with `pnpm compile`.
+| Setting | Options | Default |
+| --- | --- | --- |
+| Appearance | Follow chat appearance, Light, Dark | Follow chat appearance |
+| Colors | Follow chat colors, ChatPick default | Follow chat colors |
+| Language | English, 中文 | English |
 
-Browser regression coverage for question/section identity is in `tests/navigation.browser.mjs`. With Playwright and its Chromium browser available, run `pnpm test:navigation`; set `CHATPICK_PLAYWRIGHT_MODULE` to an existing Playwright module path if it is installed outside this project. Set `CHATPICK_BUILT=1` to exercise the production content script after building.
+Changes apply immediately to open chats. Appearance and colors can be chosen independently. Open **Privacy policy** at the bottom of the settings panel to read the policy in English or Chinese.
 
-For rendered answers, section links use the page's actual headings so Markdown escapes and updated titles do not leave unclickable API entries. API sections remain available for answers that have not rendered yet. Clicking questions or sections keeps both navigation panels open, so you can select another section immediately. They close after the pointer leaves both panels; moving between the panels or onto their padding does not close them. Keyboard focus and Escape remain supported. The navigator recognizes both `data-message-role` elements and the newer search-unit containers with `data-chatgpt-selection-message-id`, including separate thinking and final-answer messages.
+## Privacy
 
-The initial question list shows five skeleton bars with a subtle shimmer until the complete history request finishes, then displays the navigator in one update. If the API fails, it falls back to rendered questions. Switching chats clears the previous list and shows the same loading placeholder. Previous-chat messages, including those still visible during the transition, are excluded from navigation. Question and answer navigation use the same default text color and weight. Answer levels are distinguished by indentation, smaller subheading text and a subtle vertical rail. The skeleton respects the system's reduced-motion preference.
+ChatPick reads your current conversation using your existing sign-in to provide navigation. Chat content is processed in your browser and is not sent to the developer. Only appearance, language, and color preferences are saved in extension storage. There are no ads or analytics, and ChatPick does not send, edit, or delete chat messages.
 
-The page navigator uses Motion's DOM animation API for spring-driven directory expansion, list and section entrances, button hover and press feedback, long-title scrolling, and toast transitions. Animations respect reduced-motion preferences; question and section jumps remain instant.
+Read the [privacy policy](docs/privacy-policy.md) for data handling details. For privacy questions or support, contact [hi@yl.do](mailto:hi@yl.do).
 
-Claude regression tests are in `tests/claude.browser.mjs`; run `pnpm build` then `pnpm test:claude` with the same Playwright module setting. They cover sparse virtual rows, repeated questions, active branches, answer headings, all four buttons, chat switching, and API failure. Claude headings are read only from the answer Markdown, excluding screen-reader summaries, thinking, tool output and code.
+## Development
 
-DeepSeek support takes over the native question-navigation entry automatically. Once ChatPick has a question list, it hides the duplicate native view while preserving the component and its list dimensions; unmounted questions reuse DeepSeek's own navigation handler before refining the scroll position. No extra setting is needed. The history endpoint supplies the active branch and response headings; thinking, search/tool output and code are excluded. If history cannot be read, previously observed DOM messages remain available. On the home page, the takeover is released. Run `pnpm test:deepseek` after building to check sparse messages, repeated questions, native navigation reuse, headings, scrolling, chat changes and DOM fallback.
+For setup, source organization, and browser regression checks, see the [development guide](docs/development.md). Coding agents should also read [AGENTS.md](AGENTS.md).
+
+## License
+
+[MIT](LICENSE) — Copyright © 2026 Yi Liu. Third-party dependencies retain their own licenses.
+
+ChatPick is an independent project and is not affiliated with the supported AI providers.

@@ -1,7 +1,8 @@
 {
   "name": "chatpick",
-  "description": "Navigate ChatGPT, Claude and DeepSeek conversations by question",
+  "description": "Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity and Qwen chats by question",
   "private": true,
+  "license": "MIT",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -18,7 +19,9 @@
     "test:routes": "node tests/routes.browser.mjs",
     "test:colors": "node tests/colors.browser.mjs",
     "test:brand-colors": "node tests/brand-colors.browser.mjs",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "test:web-chats": "node tests/web-chats.browser.mjs",
+    "test:perplexity": "node tests/perplexity.browser.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

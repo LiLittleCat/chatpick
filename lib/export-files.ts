@@ -155,7 +155,7 @@ export async function transcriptPdf(chat: Transcript, fontBytes: ArrayBuffer | U
 export function validateTranscript(value: unknown): value is Transcript {
   const v = value as Transcript;
   if (!v || typeof v.title !== 'string' || v.title.length > 1000 || typeof v.source !== 'string' || typeof v.provider !== 'string' || typeof v.exportedAt !== 'string' || typeof v.partial !== 'boolean' || !Array.isArray(v.messages) || !v.messages.length) return false;
-  if (v.source !== location.origin + location.pathname || !['ChatGPT', 'Claude', 'DeepSeek', 'Gemini', 'Grok', 'Perplexity', 'Qwen'].includes(v.provider) || !/^\d{4}-\d\d-\d\dT/.test(v.exportedAt)) return false;
+  if (v.source !== location.origin + location.pathname || !['ChatGPT', 'Claude', 'DeepSeek', 'Gemini', 'Grok', 'Perplexity', 'Qwen', 'Qianwen'].includes(v.provider) || !/^\d{4}-\d\d-\d\dT/.test(v.exportedAt)) return false;
   let total = 0;
   return v.messages.length <= 10000 && v.messages.every(m => m && typeof m.id === 'string' && (m.role === 'user' || m.role === 'assistant') && typeof m.markdown === 'string' && (total += m.markdown.length) <= 10000000);
 }

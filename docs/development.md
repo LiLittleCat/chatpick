@@ -20,7 +20,7 @@ Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands a
 | `navigator.js` | Shared navigation, existing provider history readers, active branches, question/section location, route lifecycle, and site colors |
 | `entrypoints/navigator.content.ts` | Start navigation in the page MAIN world |
 | `entrypoints/content.ts` | Bridge validated extension settings from the isolated world |
-| `lib/web-chat-adapters.ts` | Gemini, Grok, Perplexity and Qwen DOM selectors, saved-chat routes, message identity and color tokens |
+| `lib/web-chat-adapters.ts` | Gemini, Grok, Perplexity, Qwen and Qianwen DOM selectors, saved-chat routes, message identity and color tokens |
 | `lib/conversation-export.ts` | Full transcript extraction, branch selection, DOM-to-Markdown conversion, export menu and cancellation |
 | `lib/pdf-font.ts` | Adapt the current browser fontkit subset encoder to pdf-lib |
 | `lib/export-files.ts` | Local Markdown downloads and searchable, paginated PDF rendering with bundled fonts |
@@ -52,7 +52,7 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `pnpm test:routes` | Conversation scope, SPA transitions, and request cancellation |
 | `pnpm test:colors` | Settings persistence, automatic interface language, independent control visibility switches, site theme changes, appearance overrides, and fallback |
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
-| `pnpm test:web-chats` | Four new providers: identity, headings, streaming, site colors, sparse DOM, excluded paths and SPA lifecycle |
+| `pnpm test:web-chats` | DOM providers: identity, headings, streaming, site colors, sparse DOM, excluded paths and SPA lifecycle |
 | `pnpm test:export` | One-click Markdown/PDF downloads, full text, active branches, partial notices, cancellation, CJK and Trusted Types |
 | `pnpm test:layout` | Compact question/section lists, viewport height limits, and keyboard scrolling |
 | `pnpm test:motion` | Answer panel enter/exit, interrupted closing, reduced motion, accessibility and route cleanup |
@@ -75,8 +75,9 @@ The pathname must match a saved-chat detail route; query strings and fragments d
 | Grok | `/c/:uuid` | `/imagine`, agents, `/library`, `/automations`, shared links |
 | Perplexity | `/search/:uuid`, saved search slugs with a UUID or 22-character identifier | `/search`, `/library`, `/projects`, `/computer/*`, `/page/*`, `/s/*`, settings |
 | Qwen | `/c/:uuid` | Home, `/projects`, `/community`, `/coder`, settings, shared links |
+| Qianwen | `/chat/:32-hex-id` on `www.qianwen.com` and `qianwen.com` | Home, chat entry, settings, shared links and other detail paths |
 
-Gemini, Grok, Perplexity, and Qwen read rendered messages rather than requesting private history APIs. Observed questions and headings stay in page memory as virtualized messages unmount, and reset on conversation changes. On these sites, scrolling through a long conversation adds previously unloaded messages to the directory. Preserve Perplexity's workflow placeholder order when constructing virtual-list fixtures. Gemini fixtures must enforce Trusted Types; navigation must not write HTML strings.
+Gemini, Grok, Perplexity, Qwen, and Qianwen read rendered messages rather than requesting private history APIs. Observed questions and headings stay in page memory as virtualized messages unmount, and reset on conversation changes. On these sites, scrolling through a long conversation adds previously unloaded messages to the directory. Preserve Perplexity's workflow placeholder order when constructing virtual-list fixtures. Gemini fixtures must enforce Trusted Types; navigation must not write HTML strings.
 
 ## Conversation exports
 

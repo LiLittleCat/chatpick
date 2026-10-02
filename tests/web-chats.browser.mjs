@@ -1,4 +1,4 @@
-// Synthetic DOM fixtures based on the four providers' rendered chat structure.
+// Synthetic DOM fixtures based on supported providers' rendered chat structure.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -8,7 +8,16 @@ const source = fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/na
 const id = '11111111-1111-1111-1111-111111111111';
 const other = '22222222-2222-2222-2222-222222222222';
 const headings = n => `<h2>Section ${n}</h2><h3>Details ${n}</h3><pre><h4>Code heading</h4></pre><h5 class="sr-only">Hidden label</h5><h6 aria-hidden="true">Hidden heading</h6>`;
+const qianwen = {
+  name: 'Qianwen', path: '/chat/' + id.replaceAll('-', ''), other: '/chat/' + other.replaceAll('-', ''),
+  css: '--ty-theme-primary:#0044ff;--ty-background-pop:#232326;--ty-text-primary:#fafbff;--ty-text-secondary:#aaa', accent: '#0044ff',
+  excluded: ['/', '/chat', '/chat/', '/settings', '/projects', '/discovery', '/share/' + id, '/s/' + id, '/chat/short', '/chat/' + id, '/chat/' + id.replaceAll('-', '') + '/settings'],
+  question: n => `<div class="chat-question-wrap" data-fixture-question="${n}"><div class="message-card-wrap question" data-mt="text/plain"><div class="question-text-card">Continue</div></div><button>Copy</button></div>`,
+  answer: n => `<div class="chat-answers-card-wrap" data-chat-answers-wrap="turn-${n}" data-offset="1" hidden><div class="answer-common-card"><div class="qk-markdown"><h2>Hidden branch</h2></div></div></div><div class="chat-answers-card-wrap" data-chat-answers-wrap="turn-${n}" data-offset="0"><div class="thinking-card"><div class="qk-markdown"><h2>Thinking</h2></div></div><div class="answer-common-card"><div class="qk-markdown">${headings(n)}</div></div></div>`,
+  wrap: (n, question, answer) => `<div class="chat-round" data-chat="turn-${n}" data-chat-pos="${1000+n}">${question}${answer}</div>`,
+};
 const providers = [
+  ...['www.qianwen.com', 'qianwen.com'].map(host => ({ ...qianwen, host })),
   { name: 'Gemini', host: 'gemini.google.com', path: '/app/1111111111111111', other: '/app/2222222222222222', css: '--gem-sys-color--primary:#a8c7fa;--gem-sys-color--on-surface:#e3e3e3;--gem-sys-color--surface-container:#1e1f20', accent: '#a8c7fa', excluded: ['/', '/app', '/search', '/students', '/library', '/notebooks/create', '/notebook/'+id, '/share/'+id, '/app/short', '/app/1111111111111111/settings'],
     question: n => `<user-query data-fixture-question="${n}"><h5 class="cdk-visually-hidden">You said</h5><p class="query-text-line">Continue</p><button>Edit query</button></user-query>`,
     answer: n => `<model-response><div class="thinking-container"><h2>Thinking</h2></div><message-content><div class="markdown">${headings(n)}</div></message-content></model-response>`,
@@ -33,7 +42,7 @@ try {
     const errors=[]; let requests=0;
     page.on('pageerror',error=>errors.push(error.message));
     const messages = [0,1,2].map(n=>provider.wrap(n,provider.question(n),provider.answer(n))).join('');
-    const html = `<!doctype html><style>body{margin:0;background:#171717;color:#fafafa;${provider.css}}.sr-only,.cdk-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden}#scroller{height:900px;overflow:auto}#feed{padding:100px 40px 1400px;width:720px}#feed>div{min-height:450px}user-query,model-response,message-content{display:block}[data-fixture-question]{padding-top:20px;margin-bottom:180px}.markdown,.response-content-markdown,[data-renderer],.qwen-markdown{min-height:300px}h2,h3{margin:0 0 100px}</style><aside>${provider.question(99)}</aside><div id="scroller"><div id="feed" class="flex flex-col gap-2">${messages}</div></div>`;
+    const html = `<!doctype html><style>body{margin:0;background:#171717;color:#fafafa;${provider.css}}.sr-only,.cdk-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden}#scroller{height:900px;overflow:auto}#feed{padding:100px 40px 1400px;width:720px}#feed>div{min-height:450px}user-query,model-response,message-content{display:block}[data-fixture-question]{padding-top:20px;margin-bottom:180px}.markdown,.response-content-markdown,[data-renderer],.qwen-markdown{min-height:300px}h2,h3{margin:0 0 100px}</style><aside>${provider.question(99)}</aside><div id="scroller"><div id="feed" class="flex flex-col gap-2 message-list-content-container">${messages}</div></div>`;
     await page.route(`https://${provider.host}/**`, route=> {
       if(!route.request().isNavigationRequest()){requests++;return route.fulfill({status:503,body:'Unexpected history request'});}
       return route.fulfill({contentType:'text/html',body:html,headers: provider.name === 'Gemini' ? {'Content-Security-Policy':"require-trusted-types-for 'script'"} : {}});
@@ -42,6 +51,8 @@ try {
     await page.evaluate(source); // CDP execution matches extension MAIN-world injection, without a page HTML sink.
     const items=page.locator('#cgpt-toc .cn-item');
     await page.waitForFunction(()=>document.querySelectorAll('#cgpt-toc .cn-item').length===3);
+    assert.equal(await page.locator('#cgpt-btns button').first().getAttribute('aria-disabled'),'true','Start is unavailable at the physical top without API history');
+    assert.equal(await page.locator('#cgpt-btns button').nth(1).getAttribute('aria-disabled'),'true','Previous is unavailable at the physical top without API history');
     assert.deepEqual(await items.locator('.cn-t').allTextContents(), ['Continue','Continue','Continue']);
     assert.equal(await page.locator('#cgpt-nav-box').evaluate(n=>getComputedStyle(n).getPropertyValue('--cn-active').trim()),provider.accent);
     await items.nth(1).click();
@@ -78,6 +89,13 @@ try {
     await page.evaluate(()=>{document.querySelector('[data-fixture-question="0"]').closest('#feed>div').textContent='';});
     await page.waitForTimeout(450);
     assert.equal(await items.count(),3);
+    if (provider.name === 'Qianwen') {
+      await page.locator('#feed>div').first().evaluate((node, html) => node.innerHTML = html, provider.question(0) + provider.answer(0));
+      await page.waitForTimeout(450);
+      assert.equal(await items.count(), 3, 'Remounted Qianwen questions retain their stable identities');
+      await items.first().click();
+      assert.deepEqual(await page.locator('#cgpt-sections .cn-t').allTextContents(), ['Section 0', 'Details 0']);
+    }
     // A route change with old DOM still present must show neither old users nor answers.
     await page.evaluate(path=>history.pushState({},'',path),provider.other);
     await page.waitForFunction(()=>document.querySelectorAll('#cgpt-toc .cn-item').length===0);
@@ -152,6 +170,8 @@ try {
     await page.waitForFunction(()=>{const n=document.querySelector('#scroller');return n.scrollTop+n.clientHeight>=n.scrollHeight-2;});
     await page.locator('#cgpt-btns button').first().click();
     await page.waitForFunction(()=>document.querySelector('#scroller').scrollTop<2 && !!document.querySelector('[data-fixture-question="0"]'));
+    await page.waitForFunction(()=>document.querySelector('#cgpt-btns button').getAttribute('aria-disabled')==='true');
+    assert.equal(await page.locator('#cgpt-btns button').nth(1).getAttribute('aria-disabled'),'true','Start dims upward controls after remounting earlier questions');
     console.log(`PASS: ${provider.name} remounted questions and answer headings, repeated text and disjoint virtual windows`);
     await page.close();
   }

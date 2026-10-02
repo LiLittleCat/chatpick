@@ -15,7 +15,7 @@ ChatPick is a Chrome extension for navigating the current conversation on suppor
 
 - Run provider API reads in the page MAIN world through the existing same-origin session. Keep extension storage access in the isolated content script and popup; the bridge carries validated settings.
 - Persist only appearance, language, and color settings. Keep conversation content and credentials out of extension storage, logs, screenshots, and developer services. Use synthetic conversations in fixtures and public materials.
-- Bundle executable code with the extension. Treat provider API responses as data. Keep site access restricted to the eight supported hosts listed in entrypoints/navigator.content.ts.
+- Bundle executable code with the extension. Treat provider API responses as data. Keep site access restricted to the supported hosts listed in entrypoints/navigator.content.ts.
 - When changing permissions, endpoints, persistence, or data handling, read and update both docs/privacy-policy.md and docs/privacy-policy.zh-CN.md and the privacy declarations in docs/chrome-web-store.md to match the implementation.
 
 ## Verification and delivery

@@ -12,7 +12,7 @@ const source = process.env.CHATPICK_BUILT
   : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator(', 'function startNavigator(') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {
-  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['reverse-scroll', 'decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
+  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['start-control', 'start-control-dom-fallback', 'reverse-scroll', 'decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
   for (const scenario of scenarios.filter((scenario) => !scenario.startsWith('body-only-') && !['switched-chat', 'initial-dom'].includes(scenario))) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const messages = [
@@ -58,6 +58,24 @@ try {
     await page.addScriptTag({ content: source });
     await page.waitForTimeout(500);
     assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 3);
+    if (scenario.startsWith('start-control')) {
+      const controls = page.locator('#cgpt-btns button');
+      assert.equal(await page.evaluate(() => document.scrollingElement.scrollTop), 0);
+      assert.equal(await controls.first().getAttribute('aria-disabled'), 'true', 'Start must dim at the physical top even without API history');
+      assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'true', 'Previous must dim at the physical top even without API history');
+      await controls.last().click();
+      await page.waitForFunction(() => document.querySelectorAll('#cgpt-btns button')[2].getAttribute('aria-disabled') === 'true');
+      await controls.first().click();
+      await page.waitForTimeout(400);
+      assert.equal(await page.evaluate(() => document.scrollingElement.scrollTop), 0, 'Start reaches the actual top rather than only aligning the first question');
+      assert.equal(await controls.first().getAttribute('aria-disabled'), 'true', 'Start must dim after reaching the beginning through its own button');
+      assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'true', 'Previous must dim after reaching the beginning through Start');
+      assert.equal(await controls.nth(2).getAttribute('aria-disabled'), 'false', 'Next remains available at the beginning');
+      assert.deepEqual(errors, []);
+      console.log(`PASS: ${scenario}, physical top and Start dim upward controls`);
+      await page.close();
+      continue;
+    }
     if (scenario === 'reverse-scroll') {
       const scroll = page.locator('#fixture-scroll');
       const controls = page.locator('#cgpt-btns button');
@@ -68,6 +86,8 @@ try {
       assert.equal(await controls.nth(3).getAttribute('aria-disabled'), 'true');
       await controls.nth(0).click();
       assert.ok(await scroll.evaluate(el => el.scrollTop < -(el.scrollHeight - el.clientHeight) / 2), 'Start actually scrolls toward the beginning');
+      await page.waitForFunction(() => document.querySelector('#cgpt-btns button').getAttribute('aria-disabled') === 'true');
+      assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'true', 'Start dims upward controls in a reverse layout');
       await scroll.evaluate(el => el.scrollTo({ top: -1e9, behavior: 'instant' }));
       await page.waitForFunction(() => document.querySelector('#cgpt-btns button').getAttribute('aria-disabled') === 'true');
       assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'true');

@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS, normalizeSettings, resolveLanguage, type NavigatorSet
 import { downloadTranscript, validateTranscript } from '../lib/export-files';
 
 export default defineContentScript({
-  matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*'],
+  matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*', 'https://www.qianwen.com/*', 'https://qianwen.com/*'],
   runAt: 'document_idle',
   main() {
     let exportRequest: { id: string; source: string; controller: AbortController } | null = null;

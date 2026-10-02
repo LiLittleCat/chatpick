@@ -1,8 +1,8 @@
 # ChatPick 隐私政策
 
-最后更新：2026 年 10 月 1 日
+最后更新：2026 年 10 月 2 日
 
-ChatPick 是一个独立浏览器扩展，帮助你按问题和回答章节导航当前的 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity 或 Qwen 对话。本政策描述扩展的数据处理方式，不涵盖这些 AI 平台自身的服务。
+ChatPick 是一个独立浏览器扩展，帮助你按问题和回答章节导航当前的 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 或千问对话。本政策描述扩展的数据处理方式，不涵盖这些 AI 平台自身的服务。
 
 ## 扩展处理的信息
 
@@ -10,14 +10,14 @@ ChatPick 在你的浏览器中处理以下信息，以提供聊天导航和导�
 
 - **对话内容：** 当前聊天页面或平台会话响应中的问题、回答、标题、消息标识、分支关系及相关元数据。
 - **当前页面信息：** 受支持网站的域名、当前聊天地址和标识、相关页面元素与主题颜色。ChatPick 不读取浏览器的全局历史记录。
-- **现有会话信息：** 读取当前对话所需的平台认证令牌、Cookie 与标识。ChatGPT 会话信息可能包含访问令牌和设备标识；Claude 请求使用现有会话与组织标识；DeepSeek 请求使用现有会话令牌。Gemini、Grok、Perplexity 和 Qwen 导航只读取已显示的页面内容，不读取会话凭据或额外请求聊天历史。ChatPick 不要求输入密码或注册额外账号。
+- **现有会话信息：** 读取当前对话所需的平台认证令牌、Cookie 与标识。ChatGPT 会话信息可能包含访问令牌和设备标识；Claude 请求使用现有会话与组织标识；DeepSeek 请求使用现有会话令牌。Gemini、Grok、Perplexity、Qwen 和千问导航只读取已显示的页面内容，不读取会话凭据或额外请求聊天历史。ChatPick 不要求输入密码或注册额外账号。
 - **偏好设置：** 明暗、语言、配色，以及导出按钮和跳转按钮的显示设置。
 
 聊天文本可能包含个人或敏感信息。ChatPick 仅将这些内容用于当前会话的导航和导出，不用于训练 AI 模型、建立用户画像或投放广告。
 
 ## 信息的使用与传输
 
-在 ChatGPT、Claude 和 DeepSeek 上，扩展使用当前平台已有的登录会话，通过 HTTPS 向该平台发起只读请求，获取当前对话，以定位尚未显示在页面上的问题和章节。会话凭据只用于对应平台的同源接口。Gemini、Grok、Perplexity 和 Qwen 的导航使用网页已经显示的消息；滚动时识别到的消息保留在当前对话的页面内存中。
+在 ChatGPT、Claude 和 DeepSeek 上，扩展使用当前平台已有的登录会话，通过 HTTPS 向该平台发起只读请求，获取当前对话，以定位尚未显示在页面上的问题和章节。会话凭据只用于对应平台的同源接口。Gemini、Grok、Perplexity、Qwen 和千问的导航使用网页已经显示的消息；滚动时识别到的消息保留在当前对话的页面内存中。
 
 ChatPick 不会将聊天内容、凭据或浏览活动发送给开发者或开发者运营的服务器。扩展没有分析统计、广告、遥测或数据销售。开发者不会通过扩展接收或查看你的聊天。ChatPick 不会发送、编辑或删除聊天消息。
 
@@ -33,7 +33,7 @@ ChatPick 不会将聊天内容、凭据或浏览活动发送给开发者或开�
 
 ## 权限与范围
 
-`storage` 权限用于保存偏好设置。内容脚本匹配 `chatgpt.com`、`chat.openai.com`、`claude.ai`、`chat.deepseek.com`、`gemini.google.com`、`grok.com`、`www.perplexity.ai` 和 `chat.qwen.ai`，用于识别页面变化及显示导航界面。
+`storage` 权限用于保存偏好设置。内容脚本匹配 `chatgpt.com`、`chat.openai.com`、`claude.ai`、`chat.deepseek.com`、`gemini.google.com`、`grok.com`、`www.perplexity.ai`、`chat.qwen.ai`、`www.qianwen.com` 和 `qianwen.com`，用于识别页面变化及显示导航界面。
 
 聊天读取和导航只在受支持的已保存对话详情页运行。这些域名的其他页面保留轻量路由检测，以便进入对话时无需刷新即可启用导航。首页、项目概览、新建聊天入口、设置页和分享页面不会触发聊天历史读取。
 

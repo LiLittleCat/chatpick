@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-在 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity 和 Qwen 的长对话中，按问题和回答章节快速跳转。
+在 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 和千问的长对话中，按问题和回答章节快速跳转。
 
 ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你找到之前的提问、回看回答中的某一节，或直接返回对话开头和底部。
 
@@ -20,13 +20,14 @@ ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你
 
 | 网站 | 对话 |
 | --- | --- |
-| ChatGPT | 普通聊天、项目聊天和自定义 GPT 聊天 |
-| Claude | 普通聊天和项目内的聊天 |
-| DeepSeek | 已保存的聊天 |
-| Gemini | 已保存的聊天 |
-| Grok | 已保存的聊天 |
-| Perplexity | 已保存的搜索对话 |
-| Qwen | 已保存的聊天，包括项目内聊天 |
+| [ChatGPT](https://chatgpt.com/) | 普通聊天、项目聊天和自定义 GPT 聊天 |
+| [Claude](https://claude.ai/) | 普通聊天和项目内的聊天 |
+| [DeepSeek](https://chat.deepseek.com/) | 已保存的聊天 |
+| [Gemini](https://gemini.google.com/) | 已保存的聊天 |
+| [Grok](https://grok.com/) | 已保存的聊天 |
+| [Perplexity](https://www.perplexity.ai/) | 已保存的搜索对话 |
+| [Qwen](https://chat.qwen.ai/) | 已保存的聊天，包括项目内聊天 |
+| [千问](https://www.qianwen.com/) | 已保存的聊天 |
 
 导航只在对话页面显示，不出现在首页、项目概览、设置页和分享页面。没有标题的回答不会显示章节目录。部分历史内容无法获取时，目录可能只显示页面已经加载的消息。
 

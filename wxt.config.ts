@@ -5,11 +5,11 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'ChatPick',
-    description: 'Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity and Qwen chats by question',
+    description: 'Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen and Qianwen chats by question',
     permissions: ['storage'],
     web_accessible_resources: [{
       resources: ['fonts/NotoSansSC-Regular.ttf'],
-      matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*'],
+      matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*', 'https://www.qianwen.com/*', 'https://qianwen.com/*'],
     }],
     icons: {
       16: 'icon/16.png',

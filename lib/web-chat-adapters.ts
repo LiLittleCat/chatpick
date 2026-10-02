@@ -15,9 +15,23 @@ export type WebChatAdapter = {
 };
 
 const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const qianwen = {
+  name: 'Qianwen', route: /^\/chat\/([0-9a-f]{32})\/?$/i,
+  user: '.message-list-content-container .chat-round[data-chat] .chat-question-wrap',
+  answer: '.message-list-content-container .chat-round[data-chat] .chat-answers-card-wrap[data-chat-answers-wrap]',
+  content: '.question-text-card', answerContent: '.answer-common-card .qk-markdown',
+  colors: {
+    bg: ['--ty-background-pop', '--ty-background-base'], fg: ['--ty-text-primary'],
+    muted: ['--ty-text-secondary'], border: ['--color-border-default'],
+    track: ['--color-border-muted'], hover: ['--ty-background-option'],
+    active: ['--ty-theme-primary', '--color-primary'],
+  }, accent: (dark: boolean) => dark ? '#679efe' : '#0044ff',
+};
 
 // Exact saved-chat routes deliberately exclude entry, sharing, settings, and project pages.
 const configurations = {
+  'www.qianwen.com': qianwen,
+  'qianwen.com': qianwen,
   'gemini.google.com': {
     name: 'Gemini', route: /^\/app\/([0-9a-f]{16})\/?$/i,
     user: 'user-query', answer: 'model-response',
@@ -70,7 +84,8 @@ export function createWebChatAdapter(): WebChatAdapter | null {
   const nodeIds = new WeakMap<Element, number>();
   let nextNodeId = 0;
   const query = (selector: string) => Array.from(document.querySelectorAll<HTMLElement>(selector))
-    .filter(node => !node.closest('nav, aside, header, footer, form, [role="dialog"], #cgpt-nav-box'));
+    .filter(node => !node.closest('nav, aside, header, footer, form, [role="dialog"], #cgpt-nav-box'))
+    .filter(node => name !== 'qianwen' || !!node.getClientRects().length && !node.closest('[hidden], [aria-hidden="true"]'));
 
   function partition(node: Element): Element | null {
     // Perplexity keeps empty placeholders for unmounted workflow partitions.
@@ -85,6 +100,10 @@ export function createWebChatAdapter(): WebChatAdapter | null {
   }
 
   function order(node: Element): number {
+    if (name === 'qianwen') {
+      const position = node.closest('.chat-round')?.getAttribute('data-chat-pos');
+      if (position && /^\d+$/.test(position)) return Number(position) * 2 + (node.matches(config.answer) ? 1 : 0);
+    }
     if (name === 'grok') {
       const row = node.closest<HTMLElement>('[data-plane-row]');
       const match = row?.style.transform.match(/translateY\(([-\d.]+)px\)/);
@@ -106,6 +125,10 @@ export function createWebChatAdapter(): WebChatAdapter | null {
     if (name === 'gemini') id = node.closest('.conversation-container[id]')?.id;
     if (name === 'grok') id = node.closest('[id^="response-"]')?.id;
     if (name === 'qwen') id = node.getAttribute('data-msg-id') || node.id || node.querySelector('[data-msg-id]')?.getAttribute('data-msg-id');
+    if (name === 'qianwen') {
+      id = node.closest('.chat-round')?.getAttribute('data-chat');
+      if (id && role === 'assistant') id += ':' + (node.getAttribute('data-offset') || '0');
+    }
     if (name === 'perplexity') {
       const slot = partition(node);
       const index = slot?.parentElement ? Array.from(slot.parentElement.children).indexOf(slot) : null;
@@ -116,7 +139,7 @@ export function createWebChatAdapter(): WebChatAdapter | null {
       id = 'node-' + nodeIds.get(node);
     }
     // Qwen/Grok/Gemini IDs survive remounts; partition IDs are scoped to a conversation.
-    return `${name}:${name === 'perplexity' ? conversationId() + ':' : ''}${id}:${role}`;
+    return `${name}:${name === 'perplexity' || name === 'qianwen' ? conversationId() + ':' : ''}${id}:${role}`;
   }
 
   return {
@@ -128,7 +151,7 @@ export function createWebChatAdapter(): WebChatAdapter | null {
       const roots = parts.filter(part => !parts.some(other => other !== part && other.contains(part)));
       return roots.map(part => part.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
     },
-    userRoots: node => Array.from(node.querySelectorAll(config.content)),
+    userRoots: node => Array.from(node.querySelectorAll(name === 'qianwen' ? '.message-card-wrap.question' : config.content)),
     answerRoots: node => Array.from(node.querySelectorAll(config.answerContent)),
     colorTokens: config.colors, accent: config.accent,
   };

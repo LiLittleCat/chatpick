@@ -1,6 +1,6 @@
 {
   "name": "chatpick",
-  "description": "Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity and Qwen chats by question",
+  "description": "Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen and Qianwen chats by question",
   "private": true,
   "license": "MIT",
   "version": "0.1.0",

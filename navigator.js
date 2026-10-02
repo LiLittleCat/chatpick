@@ -872,7 +872,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     lastTargetIdx = -1;
     seekToken++;
     document.querySelectorAll('#cgpt-btns button').forEach(button => {
-      button.removeAttribute('data-busy'); button.removeAttribute('aria-busy');
+      button.removeAttribute('aria-busy');
     });
     hideSections(true);
     tocItems.forEach(stopMarquee);
@@ -1102,23 +1102,26 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
   }
 
   async function goToStart() {
+    // History-backed virtual lists may need to mount their earliest question first.
+    if (!adapter && entries.length && !await jumpTo(0)) return;
     lastTargetIdx = -1;
-    if (adapter) {
-      const token = ++seekToken;
-      const first = getAllTurns()[0];
-      if (!first) return toast(diagnose());
-      const scrollers = getScrollableAncestors(first);
-      for (let pass = 0; pass < 8 && token === seekToken; pass++) {
-        scrollers.forEach(scroller => scroller.scrollTo({ top: 0, behavior: 'instant' }));
-        await waitForContent(160);
-        if (scrollers.every(scroller => scroller.scrollTop < 2)) break;
-      }
-      return;
-    }
-    if (entries.length) return jumpTo(0);
+    const token = ++seekToken;
     const first = getAllTurns()[0] || getUserMessages()[0];
     if (!first) return toast(diagnose());
-    scrollElTo(first, 'start');
+    const scrollers = getScrollableAncestors(first);
+    for (let pass = 0; pass < 8 && token === seekToken; pass++) {
+      scrollers.forEach(scroller => scroller.scrollTo({
+        top: getComputedStyle(scroller).flexDirection === 'column-reverse' ? -1e9 : 0,
+        behavior: 'instant',
+      }));
+      await waitForContent(160);
+      if (scrollers.every(scroller => {
+        const position = getComputedStyle(scroller).flexDirection === 'column-reverse'
+          ? scroller.scrollHeight - scroller.clientHeight + scroller.scrollTop
+          : scroller.scrollTop;
+        return position < 2;
+      })) break;
+    }
   }
 
   // 传入很大的 top 值，浏览器会自动限制到最远处；反复几次，等虚拟化列表把底部内容渲染出来
@@ -1211,7 +1214,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       ? max + scroller.scrollTop
       : scroller?.scrollTop;
     // Only dim known boundaries; a sparse window must not hide earlier questions.
-    const firstKnown = apiOk && w.indices.includes(0);
+    const firstKnown = w.indices.includes(0);
     const lastKnown = w.indices.includes(entries.length - 1);
     const atStart = firstKnown && max > 2 && position <= 2;
     const atEnd = lastKnown && max > 2 && position >= max - 2;
@@ -1988,7 +1991,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
         font: 12px/1.5 system-ui, sans-serif;
       }
       #cgpt-btns button svg { width: 18px; height: 18px; }
-      #cgpt-btns button svg, #cgpt-nav-box button > .cn-spinner { grid-column: 1; grid-row: 1; }
+      #cgpt-btns button svg, #chatpick-export-button > .cn-spinner { grid-column: 1; grid-row: 1; }
       #cgpt-btns .cn-control-label, #chatpick-export-button > span:not(.cn-spinner) { grid-column: 2; grid-row: 1; }
       #cgpt-btns button:first-child .cn-control-label, #cgpt-btns button:last-child .cn-control-label { color: var(--cn-muted); }
       #cgpt-btns button:nth-child(2), #cgpt-btns button:nth-child(4) { margin-top: 8px; }
@@ -2005,8 +2008,8 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       }
       #cgpt-btns button:is(:hover,:focus-visible)::after, #chatpick-export-button:is(:hover,:focus-visible):not([aria-expanded="true"])::after { opacity: 1; visibility: visible; transition-delay: .2s; }
       #cgpt-nav-box .cn-spinner { display: none; width: 14px; height: 14px; flex: none; box-sizing: border-box; border: 1.5px solid var(--cn-border); border-top-color: currentColor; border-radius: 50%; animation: cn-spin .75s linear infinite; }
-      #cgpt-nav-box button[data-busy="true"] .cn-spinner { display: block; }
-      #cgpt-nav-box button[data-busy="true"] > svg { display: none; }
+      #chatpick-export-button[data-busy="true"] .cn-spinner { display: block; }
+      #chatpick-export-button[data-busy="true"] > svg { display: none; }
       @keyframes cn-spin { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) { #cgpt-nav-box .cn-spinner { animation: none; } #cgpt-btns button::after, #chatpick-export-button::after { transition: none; } }
 
@@ -2049,7 +2052,6 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     btn.className = 'cn-control';
     btn.appendChild(createIcon(iconPaths));
     const caption = document.createElement('span'); caption.className = 'cn-control-label'; caption.textContent = label(key + 'Short'); btn.appendChild(caption);
-    const spinner = document.createElement('span'); spinner.className = 'cn-spinner'; spinner.setAttribute('aria-hidden', 'true'); btn.insertBefore(spinner, caption);
     motion.button?.(btn);
     let operation = 0;
     btn.addEventListener('click', async (e) => {
@@ -2060,14 +2062,14 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       try {
         const result = handler();
         if (result?.then) {
-          btn.dataset.busy = 'true'; btn.setAttribute('aria-busy', 'true');
+          btn.setAttribute('aria-busy', 'true');
           await result;
         }
       } catch (err) {
         console.error('[ChatGPT 对话导航] 出错：', err);
         toast(label('error') + err.message);
       } finally {
-        if (current === operation) { btn.removeAttribute('data-busy'); btn.removeAttribute('aria-busy'); safe(refreshControls, '按钮状态'); }
+        if (current === operation) { btn.removeAttribute('aria-busy'); safe(refreshControls, '按钮状态'); }
       }
     });
     return btn;

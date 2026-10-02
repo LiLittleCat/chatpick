@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SettingsSelect } from './SettingsSelect';
-import { DEFAULT_SETTINGS, normalizeSettings, type ColorSetting, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
+import { SettingsToggle } from './SettingsToggle';
+import { DEFAULT_SETTINGS, normalizeSettings, resolveLanguage, type ColorSetting, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
 import './App.css';
 
 const translations = {
@@ -11,7 +12,11 @@ const translations = {
     siteColors: 'Follow chat colors',
     defaultColors: 'ChatPick default',
     language: 'Language',
+    autoLanguage: 'Follow chat language',
     privacy: 'Privacy policy',
+    controls: 'Controls',
+    showExport: 'Show export button',
+    showJumpButtons: 'Show jump buttons',
     auto: 'Follow chat appearance',
     light: 'Light',
     dark: 'Dark',
@@ -25,7 +30,11 @@ const translations = {
     siteColors: '跟随网页配色',
     defaultColors: 'ChatPick 默认',
     language: '语言',
+    autoLanguage: '跟随网页语言',
     privacy: '隐私政策',
+    controls: '按钮显示',
+    showExport: '显示导出按钮',
+    showJumpButtons: '显示跳转按钮',
     auto: '跟随网页明暗',
     light: '浅色',
     dark: '深色',
@@ -37,6 +46,7 @@ const translations = {
 function App() {
   const [settings, setSettings] = useState<NavigatorSettings>(DEFAULT_SETTINGS);
   const [activeSelect, setActiveSelect] = useState<'theme' | 'colors' | 'language' | null>(null);
+  const [pageLanguage, setPageLanguage] = useState(() => resolveLanguage('auto', '', navigator.language));
 
   useEffect(() => {
     browser.storage.local.get(DEFAULT_SETTINGS)
@@ -62,12 +72,23 @@ function App() {
     return () => media.removeEventListener('change', updateTheme);
   }, [settings.theme]);
 
+  useEffect(() => {
+    if (settings.language !== 'auto') return;
+    let active = true;
+    browser.tabs.query({ active: true, currentWindow: true })
+      .then(([tab]) => tab?.id ? browser.tabs.sendMessage(tab.id, { type: 'chatpick:get-language' }) : null)
+      .then(language => { if (active) setPageLanguage(resolveLanguage('auto', typeof language === 'string' ? language : '', navigator.language)); })
+      .catch(() => { if (active) setPageLanguage(resolveLanguage('auto', '', navigator.language)); });
+    return () => { active = false; };
+  }, [settings.language]);
+
   const update = (next: Partial<NavigatorSettings>) => {
     const updated = { ...settings, ...next };
     setSettings(updated);
     browser.storage.local.set(next).catch(console.error);
   };
-  const t = translations[settings.language];
+  const interfaceLanguage = resolveLanguage(settings.language, pageLanguage);
+  const t = translations[interfaceLanguage];
 
   return (
     <main className="popup">
@@ -95,12 +116,18 @@ function App() {
       <div className="settings-row" style={{ zIndex: activeSelect === 'language' ? 2 : 1 }}>
         <label id="language-label">{t.language}</label>
         <SettingsSelect<LanguageSetting> labelId="language-label" value={settings.language}
-          options={[{ value: 'en', label: t.en }, { value: 'zh', label: t.zh }]}
+          options={[{ value: 'auto', label: t.autoLanguage }, { value: 'en', label: t.en }, { value: 'zh', label: t.zh }]}
           onChange={(language) => update({ language })}
           open={activeSelect === 'language'} onOpenChange={(open) => setActiveSelect(open ? 'language' : null)} />
       </div>
+      <section className="settings-toggles" aria-label={t.controls}>
+        <SettingsToggle label={t.showExport} checked={settings.showExport}
+          onChange={(showExport) => update({ showExport })} />
+        <SettingsToggle label={t.showJumpButtons} checked={settings.showJumpButtons}
+          onChange={(showJumpButtons) => update({ showJumpButtons })} />
+      </section>
       <footer className="popup-footer">
-        <a href={browser.runtime.getURL('/privacy.html') + `?lang=${settings.language}`} target="_blank" rel="noopener noreferrer">
+        <a href={browser.runtime.getURL('/privacy.html') + `?lang=${interfaceLanguage}`} target="_blank" rel="noopener noreferrer">
           {t.privacy}
         </a>
       </footer>

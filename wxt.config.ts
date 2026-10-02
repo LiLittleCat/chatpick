@@ -7,6 +7,10 @@ export default defineConfig({
     name: 'ChatPick',
     description: 'Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity and Qwen chats by question',
     permissions: ['storage'],
+    web_accessible_resources: [{
+      resources: ['fonts/NotoSansSC-Regular.ttf'],
+      matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*'],
+    }],
     icons: {
       16: 'icon/16.png',
       32: 'icon/32.png',

@@ -12,7 +12,7 @@ const source = process.env.CHATPICK_BUILT
   : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator(', 'function startNavigator(') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {
-  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
+  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['reverse-scroll', 'decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
   for (const scenario of scenarios.filter((scenario) => !scenario.startsWith('body-only-') && !['switched-chat', 'initial-dom'].includes(scenario))) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const messages = [
@@ -50,7 +50,7 @@ try {
       if (url.includes('/backend-api/')) return scenario.endsWith('dom-fallback')
         ? route.fulfill({ status: 503, body: 'Unavailable' })
         : route.fulfill({ json: { mapping, current_node: parent } });
-      return route.fulfill({ contentType: 'text/html', body: html });
+      return route.fulfill({ contentType: 'text/html', body: scenario === 'reverse-scroll' ? html.replace('<main>', '<style>#fixture-scroll{height:800px;overflow-y:auto;display:flex;flex-direction:column-reverse}#fixture-scroll>div{flex:none}</style><div id="fixture-scroll"><div><main>') + '</div></div>' : html });
     });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -58,6 +58,29 @@ try {
     await page.addScriptTag({ content: source });
     await page.waitForTimeout(500);
     assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 3);
+    if (scenario === 'reverse-scroll') {
+      const scroll = page.locator('#fixture-scroll');
+      const controls = page.locator('#cgpt-btns button');
+      assert.equal(await scroll.evaluate(el => el.scrollTop), 0, 'Reverse layout starts at the bottom');
+      assert.equal(await controls.nth(0).getAttribute('aria-disabled'), 'false', 'Start must be enabled at the bottom of a reversed scroll container');
+      assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'false', 'Previous question must be enabled at the bottom');
+      assert.equal(await controls.nth(2).getAttribute('aria-disabled'), 'true', 'Next is unavailable at the actual bottom');
+      assert.equal(await controls.nth(3).getAttribute('aria-disabled'), 'true');
+      await controls.nth(0).click();
+      assert.ok(await scroll.evaluate(el => el.scrollTop < -(el.scrollHeight - el.clientHeight) / 2), 'Start actually scrolls toward the beginning');
+      await scroll.evaluate(el => el.scrollTo({ top: -1e9, behavior: 'instant' }));
+      await page.waitForFunction(() => document.querySelector('#cgpt-btns button').getAttribute('aria-disabled') === 'true');
+      assert.equal(await controls.nth(1).getAttribute('aria-disabled'), 'true');
+      assert.equal(await controls.nth(2).getAttribute('aria-disabled'), 'false');
+      await controls.nth(3).click();
+      await page.waitForFunction(() => document.querySelectorAll('#cgpt-btns button')[2].getAttribute('aria-disabled') === 'true');
+      await controls.nth(1).click();
+      assert.ok(await scroll.evaluate(el => el.scrollTop < -2), 'Previous question actually scrolls upward from the bottom');
+      assert.deepEqual(errors, []);
+      console.log('PASS: reversed scroll boundaries and upward navigation from bottom');
+      await page.close();
+      continue;
+    }
     const targetId = duplicate ? 'u2' : 'u3';
     const index = Number(targetId[1]) - 1;
     await page.locator('#cgpt-toc .cn-item').nth(index).click();
@@ -120,6 +143,16 @@ try {
       await page.waitForTimeout(450);
       assert(!await page.locator('#cgpt-sections').isVisible(), 'Leaving both panels must close the menu after clicking Ask');
       assert(await page.locator('#cgpt-toc').evaluate((node) => node.getBoundingClientRect().width < 100), 'Mouse-click focus on Ask must not prevent collapsing');
+    }
+    if (scenario === 'decorated-text') {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForFunction(() => document.querySelectorAll('#cgpt-btns button')[1].getAttribute('aria-disabled') === 'true');
+      await page.locator('#cgpt-btns button').last().click();
+      await page.waitForFunction(() => document.querySelectorAll('#cgpt-btns button')[2].getAttribute('aria-disabled') === 'true');
+      assert.equal(await page.locator('#cgpt-btns button').first().getAttribute('aria-disabled'), 'false');
+      await page.evaluate(() => window.scrollTo(0, 400));
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('#cgpt-btns button')).every(button => button.getAttribute('aria-disabled') === 'false'));
+      console.log('PASS: boundaries dim correctly and scrolling restores navigation');
     }
     assert.deepEqual(errors, []);
     console.log(`PASS: ${scenario}, structured question and chapter resolve to selected messages`);

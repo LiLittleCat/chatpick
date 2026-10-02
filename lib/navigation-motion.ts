@@ -3,6 +3,7 @@ import { animate } from 'motion';
 export function createNavigationMotion() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const animations = new WeakMap<HTMLElement, ReturnType<typeof animate>>();
+  const panels = new WeakMap<HTMLElement, object>();
   const ease = [0.16, 1, 0.3, 1] as const;
 
   function reveal(element: HTMLElement) {
@@ -15,6 +16,35 @@ export function createNavigationMotion() {
 
   return {
     reveal,
+    panel(element: HTMLElement, visible: boolean, immediate = false) {
+      animations.get(element)?.stop();
+      const state = {};
+      panels.set(element, state);
+      const wasHidden = element.hidden;
+      element.inert = !visible;
+      element.setAttribute('aria-hidden', String(!visible));
+      element.style.pointerEvents = visible ? '' : 'none';
+      if (immediate || reducedMotion.matches || !visible && wasHidden) {
+        element.hidden = !visible;
+        element.style.opacity = '';
+        element.style.transform = '';
+        animations.delete(element);
+        return;
+      }
+      element.hidden = false;
+      animations.set(element, animate(element, {
+        opacity: visible && wasHidden ? [0, 1] : visible ? 1 : 0,
+        x: visible && wasHidden ? [6, 0] : visible ? 0 : 6,
+      }, {
+        duration: visible ? 0.16 : 0.12,
+        ease,
+        onComplete: () => {
+          if (panels.get(element) !== state) return;
+          if (!visible) element.hidden = true;
+          animations.delete(element);
+        },
+      }));
+    },
     resize(element: HTMLElement, width: number, onUpdate: () => void) {
       animations.get(element)?.stop();
       animations.set(element, animate(element, { width }, reducedMotion.matches
@@ -44,7 +74,7 @@ export function createNavigationMotion() {
       const update = () => {
         animations.get(element)?.stop();
         animations.set(element, animate(element, {
-          scale: reducedMotion.matches ? 1 : pressed ? 0.94 : element.matches(':hover, :focus-visible') ? 1.08 : 1,
+          scale: reducedMotion.matches || element.disabled || element.getAttribute('aria-disabled') === 'true' ? 1 : pressed ? 0.98 : 1,
         }, reducedMotion.matches
           ? { duration: 0 }
           : { type: 'spring', stiffness: 500, damping: 30 }));

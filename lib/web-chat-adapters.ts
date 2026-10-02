@@ -7,6 +7,7 @@ export type WebChatAdapter = {
   answers: () => HTMLElement[];
   messageId: (node: Element) => string;
   text: (node: Element) => string;
+  userRoots: (node: Element) => Element[];
   answerRoots: (node: Element) => Element[];
   order: (node: Element) => number;
   colorTokens: Record<ColorKey, string[]>;
@@ -127,6 +128,7 @@ export function createWebChatAdapter(): WebChatAdapter | null {
       const roots = parts.filter(part => !parts.some(other => other !== part && other.contains(part)));
       return roots.map(part => part.textContent || '').join(' ').replace(/\s+/g, ' ').trim();
     },
+    userRoots: node => Array.from(node.querySelectorAll(config.content)),
     answerRoots: node => Array.from(node.querySelectorAll(config.answerContent)),
     colorTokens: config.colors, accent: config.accent,
   };

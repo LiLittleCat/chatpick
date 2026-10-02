@@ -41,6 +41,60 @@
   font-size: 13px;
 }
 
+.settings-toggles {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.settings-toggle-row label {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-toggle {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 42px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 99px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+.settings-toggle[aria-checked="true"] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+}
+
+.settings-toggle-thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+
+.settings-toggle[aria-checked="true"] .settings-toggle-thumb {
+  background: var(--background);
+}
+
+.settings-toggle:focus-visible {
+  outline: 2px solid var(--muted-foreground);
+  outline-offset: 3px;
+}
+
 .popup-footer {
   margin-top: 18px;
   padding-top: 12px;

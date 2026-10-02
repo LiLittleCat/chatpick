@@ -21,17 +21,24 @@
     "test:brand-colors": "node tests/brand-colors.browser.mjs",
     "postinstall": "wxt prepare",
     "test:web-chats": "node tests/web-chats.browser.mjs",
-    "test:perplexity": "node tests/perplexity.browser.mjs"
+    "test:perplexity": "node tests/perplexity.browser.mjs",
+    "test:export": "node tests/export.browser.mjs",
+    "test:layout": "node tests/layout.browser.mjs",
+    "test:motion": "node tests/motion.browser.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "fontkit": "2.0.4",
     "lucide-react": "^1.48.0",
+    "marked": "17.0.1",
     "motion": "^13.4.4",
+    "pdf-lib": "1.17.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@types/fontkit": "2.0.8",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.1.5",

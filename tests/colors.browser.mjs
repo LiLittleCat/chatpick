@@ -24,7 +24,7 @@ try {
       const listeners = [];
       window.browser = {
         runtime: { id: 'fixture', getURL: path => new URL(path, 'https://chatpick.test').href, onMessage: { addListener() {} } },
-        tabs: { query: async () => [{ id: 1 }], sendMessage: async () => 'light' },
+        tabs: { query: async () => [{ id: 1 }], sendMessage: async (_id, message) => message.type === 'chatpick:get-language' ? 'zh' : 'light' },
         storage: {
           local: {
             get: async defaults => ({ ...defaults, ...await window.readFixtureSettings() }),
@@ -60,6 +60,22 @@ try {
     });
     await page.waitForFunction(() => document.querySelector('#cgpt-nav-box')?.style.getPropertyValue('--cn-active'));
     assert.deepEqual((await palette()).values, initial);
+    // Legacy settings keep both controls enabled; each new switch is independent.
+    assert.ok(await page.locator('#chatpick-export-button').isVisible());
+    assert.ok(await page.locator('#cgpt-btns').isVisible());
+    await page.evaluate(() => window.browser.storage.local.set({ showExport: false }));
+    await page.waitForFunction(() => !document.getElementById('chatpick-export-button'));
+    assert.ok(await page.locator('#cgpt-btns').isVisible());
+    await page.evaluate(() => window.browser.storage.local.set({ showExport: true, showJumpButtons: false }));
+    await page.waitForFunction(() => document.getElementById('chatpick-export-button') && getComputedStyle(document.getElementById('cgpt-btns')).display === 'none');
+    await page.evaluate(() => window.browser.storage.local.set({ showExport: false }));
+    await page.reload();
+    await page.addScriptTag({ content: bridge });
+    await page.addScriptTag({ content: navigator });
+    await page.waitForFunction(() => document.getElementById('cgpt-nav-box') && !document.getElementById('chatpick-export-button') && document.getElementById('cgpt-btns').hidden);
+    assert.equal(await page.locator('#cgpt-toc').count(), 1, 'Hiding both controls preserves the directory');
+    await page.evaluate(() => window.browser.storage.local.set({ showExport: true, showJumpButtons: true }));
+    await page.waitForFunction(() => document.getElementById('chatpick-export-button') && !document.getElementById('cgpt-btns').hidden);
     // Stylesheet updates are observed even if html/body attributes do not change.
     await page.evaluate(css => { document.querySelector('#site-theme').textContent = css; }, `:root{${declarations(changed)}}body{background:rgb(21,21,21)}`);
     await page.waitForFunction(() => document.querySelector('#cgpt-nav-box')?.dataset.theme === 'dark');
@@ -106,6 +122,14 @@ try {
     return route.fulfill({ contentType, body: fs.readFileSync(path.join(output, filename)) });
   });
   await popup.goto('https://chatpick.test/popup.html');
+  await popup.getByRole('combobox', { name: '语言 中文', exact: true }).click();
+  await popup.getByRole('option', { name: '跟随网页语言', exact: true }).click();
+  await popup.getByRole('combobox', { name: '语言 跟随网页语言', exact: true }).waitFor();
+  assert.equal(stored.value.language, 'auto');
+  assert.match(await popup.getByRole('link', { name: '隐私政策', exact: true }).getAttribute('href'), /lang=zh/);
+  await popup.reload();
+  await popup.getByRole('combobox', { name: '语言 跟随网页语言', exact: true }).waitFor();
+  console.log('PASS: follow chat language, resolved privacy link and persistence');
   const colors = popup.getByRole('combobox', { name: '配色 跟随网页配色', exact: true });
   await colors.click();
   await popup.getByRole('option', { name: 'ChatPick 默认', exact: true }).click();
@@ -117,6 +141,30 @@ try {
   await popup.getByRole('option', { name: '跟随网页配色', exact: true }).click();
   await popup.getByRole('combobox', { name: '配色 跟随网页配色', exact: true }).waitFor();
   assert.equal(stored.value.colors, 'site');
+  const exportSwitch = popup.getByRole('switch', { name: '显示导出按钮', exact: true });
+  const jumpSwitch = popup.getByRole('switch', { name: '显示跳转按钮', exact: true });
+  assert.equal(await exportSwitch.getAttribute('aria-checked'), 'true');
+  assert.equal(await jumpSwitch.getAttribute('aria-checked'), 'true');
+  await exportSwitch.click();
+  assert.equal(stored.value.showExport, false);
+  assert.equal(await jumpSwitch.getAttribute('aria-checked'), 'true');
+  await jumpSwitch.press('Space');
+  assert.equal(stored.value.showJumpButtons, false);
+  await popup.reload();
+  await popup.waitForFunction(() => Array.from(document.querySelectorAll('[role="switch"]')).every(button => button.getAttribute('aria-checked') === 'false'));
+  assert.equal(await exportSwitch.getAttribute('aria-checked'), 'false');
+  assert.equal(await jumpSwitch.getAttribute('aria-checked'), 'false');
+  await exportSwitch.press('Enter');
+  await jumpSwitch.press('Space');
+  assert.equal(stored.value.showExport, true);
+  assert.equal(stored.value.showJumpButtons, true);
+  if (process.env.CHATPICK_SETTINGS_SCREENSHOT) {
+    await popup.setViewportSize({ width: 340, height: 460 });
+    await popup.locator('.popup-header').click();
+    await popup.waitForFunction(() => Array.from(document.querySelectorAll('.settings-toggle-thumb')).every(thumb => Math.abs(new DOMMatrix(getComputedStyle(thumb).transform).m41 - 18) < .05));
+    await popup.screenshot({ path: process.env.CHATPICK_SETTINGS_SCREENSHOT });
+  }
+  console.log('PASS: independent control switches, keyboard access and persistence');
   console.log('PASS: settings popup, color choices and persistence');
   await popup.close();
 } finally { await browser.close(); }

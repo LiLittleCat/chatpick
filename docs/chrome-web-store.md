@@ -62,14 +62,15 @@ ChatPick adds a question navigator to your current ChatGPT, Claude, DeepSeek, Ge
 
 Features
 • Navigate questions in the active conversation branch, including repeated questions.
+• Export the current conversation as Markdown or a searchable PDF; partial content is labeled before downloading.
 • Browse an answer's headings and jump to the section you need.
 • Follow the chat page's colors, with highlights that match each website.
-• Choose automatic, light, or dark appearance and an English or Chinese interface.
+• Choose automatic, light, or dark appearance. Follow the chat website's language or select English or Chinese.
 • Enjoy subtle interface animations that respect reduced-motion preferences. Content jumps remain instant.
 
 ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
 
-The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on ChatGPT, Claude, and DeepSeek. Gemini, Grok, Perplexity, and Qwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to build navigation. Only appearance, language, and color preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
+The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on ChatGPT, Claude, and DeepSeek. Gemini, Grok, Perplexity, and Qwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
 
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
@@ -83,13 +84,13 @@ Google 要求本地处理的数据也如实披露。当前代码会处理聊天�
 ### Single purpose description
 
 ```text
-Help users navigate their current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, or Qwen conversation by questions and answer headings.
+Help users navigate their current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, or Qwen conversation and export it locally as Markdown or PDF.
 ```
 
 ### Storage permission justification
 
 ```text
-Save only the user's appearance, language, and color preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
+Save only the user's appearance, language, color, and export/jump button visibility preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
 ```
 
 ### Site access justification
@@ -97,17 +98,19 @@ Save only the user's appearance, language, and color preferences in chrome.stora
 虽然 manifest 没有单独声明 `host_permissions`，content script 的匹配范围仍带来网站访问权限，需要解释：
 
 ```text
-Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, and chat.qwen.ai to provide conversation navigation. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on ChatGPT, Claude, and DeepSeek, and read page theme colors. Gemini, Grok, Perplexity, and Qwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, or shared-link pages.
+Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, and chat.qwen.ai to provide conversation navigation and user-initiated local exports. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on ChatGPT, Claude, and DeepSeek, and read page theme colors. Gemini, Grok, Perplexity, and Qwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, or shared-link pages.
 ```
 
 ### Remote code
 
 当前版本选择 **No, I am not using remote code**。扩展逻辑及库随包提供，站内会话接口返回数据。新增远程脚本、动态执行远程响应等行为前，需要重新检查实现和申报。
 
+PDF 库与中文字体随包提供，字体资源仅开放给八个支持的网站；无需新增 downloads 权限。主动导出会重新读取当前会话，临时正文通过页面与隔离脚本桥接，在本机生成下载文件，不存入扩展存储，不发送给开发者。文件含标题、正文、会话 URL 与导出时间，不含凭据；下载后由用户保留或删除。
+
 ### Data usage 与 Privacy policy
 
 - 按表单的数据类型定义披露实际处理范围：网页内容、聊天通信、认证信息，以及用于识别当前聊天的网页地址。它不读取浏览器的全局历史；不要因此省略对当前聊天 URL 的说明。
-- 确认数据用途仅服务聊天导航，不销售数据，不用于广告、无关用途或信用评估；按实际行为完成用途认证。
+- 确认数据用途仅服务聊天导航和本地会话导出，不销售数据，不用于广告、无关用途或信用评估；按实际行为完成用途认证。
 - 填入公开隐私政策 URL，并确保商店说明、隐私政策和上传代码一致。
 
 这些字段的定义和填报要求以 Google 的[隐私表单说明](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)为准。若控制台询问是否有额外的数据处理，按实际版本填写。
@@ -119,8 +122,9 @@ Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepse
 2. Open a saved conversation with several user questions and an answer containing headings. Supported paths are /c/:id or /g/g-…/c/:id on ChatGPT, /chat/:id on Claude, /a/chat/s/:id on DeepSeek, /app/:id on Gemini, /c/:id on Grok and Qwen, and /search/:id on Perplexity.
 3. Use the right-side question navigator to jump between questions. Hover a question with a chevron and select one of its answer headings.
 4. Test the start, previous question, next question, and bottom buttons on each supported website.
-5. Open the toolbar popup and change appearance, colors, and language. Changes apply immediately to the open chat.
-6. Navigate to the site's home or project overview without reloading. The navigator disappears. Returning to a saved chat enables it again.
+5. Select Export above the navigation controls, choose Markdown or PDF, and check the downloaded file. Choosing a format starts the download directly. When history is unavailable or a reply is still generating, the menu and file show a partial-content notice. Files are generated locally; no developer service receives them.
+6. Open the toolbar popup and change appearance, colors, language, and the independent export/jump button switches. Changes apply immediately to the open chat; switch choices are retained after reopening the popup. The conversation directory stays available when the buttons are hidden.
+7. Navigate to the site's home or project overview without reloading. The navigator disappears. Returning to a saved chat enables it again.
 
 Expected behavior: repeated questions stay distinct; answers without headings have no section menu; reduced-motion preferences are respected. If a provider history request fails, navigation uses messages already observed on the page.
 ```
@@ -132,7 +136,7 @@ Expected behavior: repeated questions stay distinct; answers without headings ha
 1. 更新 `package.json` 版本号；后续更新需要比已发布版本更高的版本号。
 2. 运行 `pnpm compile`、`pnpm build` 以及开发指南中的浏览器测试，导航测试使用 `CHATPICK_BUILT=1`。
 3. 运行 `pnpm zip`，检查 `.output/` 下生成的 Chrome MV3 ZIP。Chrome 默认只生成扩展包；如果另行生成了 sources ZIP，保留它用于源码核查，不作为商店安装包上传。
-4. 检查 ZIP 根目录的 manifest、八个域名、权限、本地脚本和图标，以及许可证通知。当前 `pnpm zip` 不会自动把仓库根目录的 `LICENSE` 加入扩展包；正式分发前需要补上它和依赖要求的通知。
+4. 检查 ZIP 根目录的 manifest、八个域名、权限、本地脚本和图标，以及许可证通知。导出依赖与项目许可证通知已随 `THIRD-PARTY-NOTICES.txt` 打包，Noto 字体许可证在 `fonts/OFL.txt`；核对其他既有依赖的分发要求。
 5. 在开发者控制台新建条目，上传 ZIP，填写商店页面、隐私和分发字段及审核步骤，预览材料后提交审核。
 6. 发布后记录商店链接并更新 README；网站适配或数据行为变化时同步更新说明。
 

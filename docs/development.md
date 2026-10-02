@@ -21,6 +21,9 @@ Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands a
 | `entrypoints/navigator.content.ts` | Start navigation in the page MAIN world |
 | `entrypoints/content.ts` | Bridge validated extension settings from the isolated world |
 | `lib/web-chat-adapters.ts` | Gemini, Grok, Perplexity and Qwen DOM selectors, saved-chat routes, message identity and color tokens |
+| `lib/conversation-export.ts` | Full transcript extraction, branch selection, DOM-to-Markdown conversion, export menu and cancellation |
+| `lib/pdf-font.ts` | Adapt the current browser fontkit subset encoder to pdf-lib |
+| `lib/export-files.ts` | Local Markdown downloads and searchable, paginated PDF rendering with bundled fonts |
 | `lib/navigation-motion.ts` | Navigator animation and reduced-motion handling |
 | `entrypoints/popup/` | React settings interface |
 | `entrypoints/privacy/` | Packaged policy page, rendered from the English and Chinese policy documents |
@@ -47,9 +50,12 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `pnpm test:claude` | Claude active branches, virtual lists, and answer sections |
 | `pnpm test:deepseek` | DeepSeek navigation, virtual lists, and fallback |
 | `pnpm test:routes` | Conversation scope, SPA transitions, and request cancellation |
-| `pnpm test:colors` | Settings persistence, site theme changes, appearance overrides, and fallback |
+| `pnpm test:colors` | Settings persistence, automatic interface language, independent control visibility switches, site theme changes, appearance overrides, and fallback |
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
 | `pnpm test:web-chats` | Four new providers: identity, headings, streaming, site colors, sparse DOM, excluded paths and SPA lifecycle |
+| `pnpm test:export` | One-click Markdown/PDF downloads, full text, active branches, partial notices, cancellation, CJK and Trusted Types |
+| `pnpm test:layout` | Compact question/section lists, viewport height limits, and keyboard scrolling |
+| `pnpm test:motion` | Answer panel enter/exit, interrupted closing, reduced motion, accessibility and route cleanup |
 | `pnpm test:perplexity` | Answer-only virtual windows, question remounting, conversation reset, and accurate jumps |
 
 All suites except `test:navigation` read production output. The navigation suite can also run the source directly; use `CHATPICK_BUILT=1` for production checks. Select the suites relevant to the change, as described in [AGENTS.md](../AGENTS.md).
@@ -71,3 +77,9 @@ The pathname must match a saved-chat detail route; query strings and fragments d
 | Qwen | `/c/:uuid` | Home, `/projects`, `/community`, `/coder`, settings, shared links |
 
 Gemini, Grok, Perplexity, and Qwen read rendered messages rather than requesting private history APIs. Observed questions and headings stay in page memory as virtualized messages unmount, and reset on conversation changes. On these sites, scrolling through a long conversation adds previously unloaded messages to the directory. Preserve Perplexity's workflow placeholder order when constructing virtual-list fixtures. Gemini fixtures must enforce Trusted Types; navigation must not write HTML strings.
+
+## Conversation exports
+
+The MAIN-world history reader is shared by navigation and export. A fresh export snapshot contains full user/final-assistant text rather than navigation summaries. DOM-only providers and API failures export currently rendered content with an explicit partial warning in the menu and file; choosing a format downloads directly without a second confirmation. No completeness claim is made for virtualized history. Non-text attachments are labeled and not fetched. A validated, user-initiated bridge passes transient transcript data to the isolated script. It generates files locally without storage or downloads permissions, and aborts on cancellation or route changes. PDF uses pdf-lib, fontkit and marked, with a bundled Noto Sans SC font and glyph subsetting. Unsupported glyphs use an explicit Unicode-codepoint label; formulas retain their source notation. License notices are packaged in `public/THIRD-PARTY-NOTICES.txt` and `public/fonts/OFL.txt`.
+
+Font subsetting uses fontkit 2 with a streaming-interface adapter; older fontkit versions corrupted CJK glyphs in rendered PDFs. Validate generated files visually as well as by extracting text. The bundled static TrueType font was instantiated at weight 400; its source, license and checksum are in `public/fonts/README.txt`.

@@ -6,14 +6,14 @@ ChatPick is an independent browser extension that helps you navigate the current
 
 ## Information the extension handles
 
-ChatPick processes the following information in your browser to provide navigation:
+ChatPick processes the following information in your browser to provide navigation and exports:
 
 - **Conversation content:** questions, answers, headings, message identifiers, branch relationships, and related metadata obtained from the current conversation's page or the provider's conversation response.
 - **Current page information:** the supported site's hostname, conversation URL and identifier, relevant page elements, and theme colors. ChatPick does not read your browser-wide history.
 - **Existing session information:** the current provider's authentication tokens or cookies and identifiers needed to read that conversation. ChatGPT session information may include an access token and device identifier; Claude requests use its existing session and organization identifier; DeepSeek requests use its existing session token. Gemini, Grok, Perplexity, and Qwen navigation reads rendered page content without reading session credentials or making additional history requests. ChatPick does not ask you to enter a password or create a ChatPick account.
-- **Preferences:** your appearance, language, and color settings.
+- **Preferences:** your appearance, language, color, and export/jump button visibility settings.
 
-Conversation text can contain personal or sensitive information. ChatPick uses it only to build the navigation you see on the current chat page. It does not use it to train AI models, create profiles, or target advertising.
+Conversation text can contain personal or sensitive information. ChatPick uses it only to provide navigation and exports of the current conversation. It does not use it to train AI models, create profiles, or target advertising.
 
 ## How information is used and transmitted
 
@@ -23,9 +23,11 @@ ChatPick does not send conversation content, credentials, or browsing activity t
 
 The AI providers process their own services and requests under their respective privacy policies. ChatPick does not control their data retention or account settings.
 
+When you choose Export, ChatPick reads the current conversation again or uses currently rendered messages, then generates a Markdown or PDF file locally. A partial export is identified before downloading. The file contains message text, a title, the conversation URL, and the export time; it never contains session credentials. PDF libraries and a Noto Chinese font are bundled with the extension; no remote export service, remote font request, or image download is used. Temporary export data is discarded after completion, cancellation, or leaving the conversation. Downloaded files remain on your device until you remove them.
+
 ## Storage and retention
 
-Only the three preferences are persisted in the extension's local browser storage. They remain until changed, the extension's local storage is cleared, or the extension is uninstalled. They are not synchronized by ChatPick to another device or uploaded to its developer.
+Only these preferences are persisted in the extension's local browser storage. They remain until changed, the extension's local storage is cleared, or the extension is uninstalled. They are not synchronized by ChatPick to another device or uploaded to its developer.
 
 Navigation state is held in page memory and reset when you switch conversations or leave a supported chat route. An in-memory ChatGPT access-token cache can be reused for up to five minutes before a fresh token is requested; the cache is discarded when the page unloads. Conversation content and credentials are not written to extension storage. The extension does not remove the provider's own cookies, browser storage, or saved conversations.
 
@@ -43,7 +45,7 @@ If you choose to contact the developer, the information you provide in that mess
 
 ## Limited use and changes
 
-ChatPick's use of information is limited to providing its conversation-navigation feature and follows the [Chrome Web Store User Data Policy, including its Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use). Information is not sold, used for advertising, or used to determine creditworthiness or lending eligibility.
+ChatPick's use of information is limited to providing its conversation-navigation and export features and follows the [Chrome Web Store User Data Policy, including its Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use). Information is not sold, used for advertising, or used to determine creditworthiness or lending eligibility.
 
 When the extension's data handling changes, this policy and its last-updated date will be updated to describe that behavior.
 

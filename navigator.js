@@ -11,7 +11,7 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-export function startNavigator(motion = {}, adapter = null) {
+export function startNavigator(motion = {}, adapter = null, exporter = null) {
 
   const isClaude = location.hostname === 'claude.ai';
   const isDeepseek = location.hostname === 'chat.deepseek.com';
@@ -21,7 +21,7 @@ export function startNavigator(motion = {}, adapter = null) {
   const CLAUDE_ROW = '[data-testid="transcript-row"][data-index]';
   const claudeMessageId = (index) => 'claude:' + convId + ':' + index;
 
-  let settings = { theme: 'auto', language: 'en', colors: 'site' };
+  let settings = { theme: 'auto', language: 'auto', colors: 'site', showExport: true, showJumpButtons: true };
   const labels = {
     en: {
       placeholder: '[Image/attachment]',
@@ -33,9 +33,11 @@ export function startNavigator(motion = {}, adapter = null) {
       last: 'Already at the last question',
       error: 'Navigator error: ',
       start: 'Go to start of chat',
-      prev: 'Previous question (click repeatedly)',
-      next: 'Next question (click repeatedly)',
+      prev: 'Previous question',
+      next: 'Next question',
       bottom: 'Go to bottom',
+      startShort: 'Start', prevShort: 'Prev', nextShort: 'Next', bottomShort: 'End',
+      controls: 'Conversation navigation',
       sections: 'Answer sections',
       sectionMissing: 'Unable to locate this section. Please try again',
       loadingNav: 'Loading navigation…',
@@ -49,34 +51,50 @@ export function startNavigator(motion = {}, adapter = null) {
       first: '已经是第一个提问',
       last: '已经是最后一个提问',
       error: '脚本出错：',
-      start: '回到聊天开始',
-      prev: '上一个提问（可连续点击）',
-      next: '下一个提问（可连续点击）',
+      start: '回到开头',
+      prev: '上一个提问',
+      next: '下一个提问',
       bottom: '跳到底部',
+      startShort: '开头', prevShort: '上一问', nextShort: '下一问', bottomShort: '底部',
+      controls: '会话导航',
       sections: '回答章节',
       sectionMissing: '无法定位这个章节，请重试',
       loadingNav: '正在加载导航…',
     },
   };
-  const label = (key) => labels[settings.language][key];
-
-  window.addEventListener('message', (event) => {
-    if (event.source !== window || event.data?.source !== 'chatpick:extension' || event.data?.type !== 'settings') return;
-    const { theme, language, colors } = event.data.settings || {};
-    settings = {
-      theme: theme === 'light' || theme === 'dark' ? theme : 'auto',
-      language: language === 'zh' ? 'zh' : 'en',
-      colors: colors === 'default' ? 'default' : 'site',
-    };
+  const language = () => settings.language === 'auto' ? /^zh(?:[-_]|$)/i.test(document.documentElement.lang.trim() || navigator.language) ? 'zh' : 'en' : settings.language;
+  const label = (key) => labels[language()][key];
+  let displayedLanguage;
+  function refreshLanguage() {
+    displayedLanguage = language();
     const buttons = document.querySelectorAll('#cgpt-btns button');
     ['start', 'prev', 'next', 'bottom'].forEach((key, i) => {
       if (buttons[i]) {
-        buttons[i].title = label(key);
+        buttons[i].dataset.tooltip = label(key);
         buttons[i].setAttribute('aria-label', label(key));
+        buttons[i].querySelector('.cn-control-label').textContent = label(key + 'Short');
       }
     });
     tocSig = '';
     safe(refreshToc, '目录');
+    window.dispatchEvent(new Event('chatpick:language'));
+  }
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== window || event.data?.source !== 'chatpick:extension' || event.data?.type !== 'settings') return;
+    const { theme, language, colors, showExport, showJumpButtons } = event.data.settings || {};
+    settings = {
+      theme: theme === 'light' || theme === 'dark' ? theme : 'auto',
+      language: language === 'zh' || language === 'en' ? language : 'auto',
+      colors: colors === 'default' ? 'default' : 'site',
+      showExport: showExport !== false,
+      showJumpButtons: showJumpButtons !== false,
+    };
+    safe(refreshLanguage, '语言');
+    const controls = document.getElementById('cgpt-btns');
+    if (controls) controls.hidden = !settings.showJumpButtons;
+    safe(installExport, '导出按钮');
+    safe(resizeToc, '目录尺寸');
     safe(applyTheme, '主题');
   });
   window.postMessage({ source: 'chatpick:page', type: 'ready' }, location.origin);
@@ -753,6 +771,38 @@ export function startNavigator(motion = {}, adapter = null) {
     return tokenCache.t;
   }
 
+  async function readHistory(id, signal) {
+    let res;
+    if (isDeepseek) {
+      // 官网使用的同源会话凭据，仅用于当前聊天的只读请求。
+      const stored = JSON.parse(localStorage.getItem('userToken') || 'null');
+      const token = typeof stored === 'string' ? stored : stored?.value;
+      if (typeof token !== 'string' || !token) throw new Error('DeepSeek session not available');
+      res = await fetch('/api/v0/chat/history_messages?chat_session_id=' + encodeURIComponent(id), {
+        headers: { Authorization: 'Bearer ' + token }, credentials: 'include', signal,
+      });
+    } else if (isClaude) {
+      // 只复用本页已观察到的组织路径，或 Claude 的当前组织 cookie。
+      const resources = performance.getEntriesByType('resource');
+      const orgPath = resources.map((resource) => new URL(resource.name, location.origin))
+        .filter((url) => url.origin === location.origin)
+        .map((url) => url.pathname.match(/^\/api\/organizations\/([0-9a-f-]{36})\//i)?.[1]).find(Boolean);
+      const cookie = document.cookie.match(/(?:^|;\s*)lastActiveOrg=([^;]+)/)?.[1];
+      const org = (cookie && decodeURIComponent(cookie)) || orgPath;
+      if (!org || !/^[0-9a-f-]{36}$/i.test(org)) throw new Error('Current Claude organization not available');
+      res = await fetch('/api/organizations/' + org + '/chat_conversations/' + id + '?tree=True&rendering_mode=messages&render_all_tools=true&include_inline_comparison=true&consistency=strong', { credentials: 'include', signal });
+    } else {
+      const token = await getToken(signal);
+      if (signal.aborted || id !== getConvId()) throw new Error('Conversation changed');
+      const headers = { Authorization: 'Bearer ' + token };
+      const did = (document.cookie.match(/(?:^|;\s*)oai-did=([^;]+)/) || [])[1];
+      if (did) headers['oai-device-id'] = did;
+      res = await fetch('/backend-api/conversation/' + id, { headers, credentials: 'include', signal });
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
   async function loadApi() {
     if (adapter) return;
     if (apiLoading || !convId) return;
@@ -763,35 +813,7 @@ export function startNavigator(motion = {}, adapter = null) {
     apiLoading = true;
     lastApiFetch = Date.now();
     try {
-      let res;
-      if (isDeepseek) {
-        // 官网使用的同源会话凭据，仅用于当前聊天的只读请求。
-        const stored = JSON.parse(localStorage.getItem('userToken') || 'null');
-        const token = typeof stored === 'string' ? stored : stored?.value;
-        if (typeof token !== 'string' || !token) throw new Error('DeepSeek session not available');
-        res = await fetch('/api/v0/chat/history_messages?chat_session_id=' + encodeURIComponent(id), {
-          headers: { Authorization: 'Bearer ' + token }, credentials: 'include', signal: request.signal,
-        });
-      } else if (isClaude) {
-        // 只复用本页已观察到的组织路径，或 Claude 的当前组织 cookie。
-        const resources = performance.getEntriesByType('resource');
-        const orgPath = resources.map((resource) => new URL(resource.name, location.origin))
-          .filter((url) => url.origin === location.origin)
-          .map((url) => url.pathname.match(/^\/api\/organizations\/([0-9a-f-]{36})\//i)?.[1]).find(Boolean);
-        const cookie = document.cookie.match(/(?:^|;\s*)lastActiveOrg=([^;]+)/)?.[1];
-        const org = (cookie && decodeURIComponent(cookie)) || orgPath;
-        if (!org || !/^[0-9a-f-]{36}$/i.test(org)) throw new Error('Current Claude organization not available');
-        res = await fetch('/api/organizations/' + org + '/chat_conversations/' + id + '?tree=True&rendering_mode=messages&render_all_tools=true&include_inline_comparison=true&consistency=strong', { credentials: 'include', signal: request.signal });
-      } else {
-        const token = await getToken(request.signal);
-        if (seq !== loadSeq || id !== getConvId()) return;
-        const headers = { Authorization: 'Bearer ' + token };
-        const did = (document.cookie.match(/(?:^|;\s*)oai-did=([^;]+)/) || [])[1];
-        if (did) headers['oai-device-id'] = did;
-        res = await fetch('/backend-api/conversation/' + id, { headers, credentials: 'include', signal: request.signal });
-      }
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      const data = await readHistory(id, request.signal);
       if (seq !== loadSeq || id !== convId) return;
       const list = isDeepseek ? extractDeepseekMessages(data) : isClaude ? extractClaudeMessages(data) : extractUserMessages(data);
       if (seq === loadSeq && id === convId && list.length) {
@@ -817,7 +839,10 @@ export function startNavigator(motion = {}, adapter = null) {
     }
   }
 
+  let stopExport = null;
   function resetConv(id) {
+    stopExport?.();
+    stopExport = null;
     apiRequest?.abort();
     apiRequest = null;
     // URL 已变但旧 DOM 尚未隐藏时，也不能把上一段对话当作新目录。
@@ -846,7 +871,10 @@ export function startNavigator(motion = {}, adapter = null) {
     activeIdx = -1;
     lastTargetIdx = -1;
     seekToken++;
-    hideSections();
+    document.querySelectorAll('#cgpt-btns button').forEach(button => {
+      button.removeAttribute('data-busy'); button.removeAttribute('aria-busy');
+    });
+    hideSections(true);
     tocItems.forEach(stopMarquee);
     tocItems = [];
     if (tocList) tocList.textContent = '';
@@ -1137,9 +1165,8 @@ export function startNavigator(motion = {}, adapter = null) {
       let idx = local;
       if (dir > 0 && idx === len - 1 && topOf(idx) < window.innerHeight * 0.6) idx = -1;
       if (idx < 0) {
-        if (dir < 0) { toast(label('first')); goToStart(); }
-        else { toast(label('last')); goToBottom(); }
-        return;
+        if (dir < 0) { toast(label('first')); return goToStart(); }
+        toast(label('last')); return goToBottom();
       }
       scrollElTo(w.msgs[idx], 'start');
       return;
@@ -1166,9 +1193,33 @@ export function startNavigator(motion = {}, adapter = null) {
     }
 
     lastClickTime = now;
-    if (target < 0) { toast(label('first')); goToStart(); return; }
-    if (target >= N) { toast(label('last')); goToBottom(); return; }
-    jumpTo(target);
+    if (target < 0) { toast(label('first')); return goToStart(); }
+    if (target >= N) { toast(label('last')); return goToBottom(); }
+    return jumpTo(target);
+  }
+
+  function refreshControls() {
+    const buttons = document.querySelectorAll('#cgpt-btns button');
+    if (!buttons.length) return;
+    document.getElementById('cgpt-btns').setAttribute('aria-label', label('controls'));
+    const w = getWindow();
+    const reference = w.msgs[0] || getAllTurns()[0];
+    const scroller = reference && getScrollableAncestors(reference)[0];
+    const max = scroller ? scroller.scrollHeight - scroller.clientHeight : 0;
+    // Reversed flex layouts use [-max, 0], with zero at the bottom.
+    const position = scroller && getComputedStyle(scroller).flexDirection === 'column-reverse'
+      ? max + scroller.scrollTop
+      : scroller?.scrollTop;
+    // Only dim known boundaries; a sparse window must not hide earlier questions.
+    const firstKnown = apiOk && w.indices.includes(0);
+    const lastKnown = w.indices.includes(entries.length - 1);
+    const atStart = firstKnown && max > 2 && position <= 2;
+    const atEnd = lastKnown && max > 2 && position >= max - 2;
+    [atStart, atStart, atEnd, atEnd].forEach((disabled, i) => {
+      const button = buttons[i];
+      const unavailable = !reference || !entries.length;
+      button.setAttribute('aria-disabled', String(unavailable || disabled));
+    });
   }
 
   // ---------- 目录 (TOC) ----------
@@ -1185,12 +1236,31 @@ export function startNavigator(motion = {}, adapter = null) {
   let sectionEntry = null;
   let sectionSig = '';
   let sectionCloseTimer = 0;
+  let sectionsVisible = false;
   let tocSkeleton = null;
   let tocWidth = TOC_WIDTH;
 
+  function fitPanelHeight(panel, list, available) {
+    if (!panel || !list || panel.hidden || !panel.getClientRects().length) return;
+    const style = getComputedStyle(panel);
+    const chrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+      .reduce((height, key) => height + (parseFloat(style[key]) || 0), 0);
+    const natural = Math.ceil(list.scrollHeight + chrome);
+    const limit = Math.max(26, Math.floor(available));
+    const preferred = Math.min(320, limit);
+    const rowHeight = list.lastElementChild?.getBoundingClientRect().height || 26;
+    // Allow a small overflow to fit naturally, but never exceed screen space.
+    const height = natural <= limit && natural - preferred <= rowHeight
+      ? natural : preferred;
+    const value = height + 'px';
+    if (panel.style.maxHeight !== value) panel.style.maxHeight = value;
+  }
+
   function resizeToc() {
     if (!tocEl) return;
-    const expanded = !!sectionEntry && !sectionEl.hidden || tocEl.matches(':hover, :has(:focus-visible)');
+    fitPanelHeight(tocEl, tocList.hidden ? tocSkeleton : tocList, tocEl.getBoundingClientRect().bottom - 16);
+    positionSections();
+    const expanded = sectionsVisible || tocEl.matches(':hover, :has(:focus-visible)');
     const width = expanded ? Math.min(TOC_WIDTH_HOVER, innerWidth - 32) : TOC_WIDTH;
     if (width === tocWidth) return;
     tocWidth = width;
@@ -1198,11 +1268,21 @@ export function startNavigator(motion = {}, adapter = null) {
     else tocEl.style.width = width + 'px';
   }
 
-  function hideSections() {
+  function setSectionsVisible(visible, immediate = false) {
+    if (!sectionEl || sectionsVisible === visible && !immediate) return;
+    sectionsVisible = visible;
+    if (motion.panel) motion.panel(sectionEl, visible, immediate);
+    else {
+      sectionEl.hidden = !visible;
+      if (visible && !immediate) motion.reveal?.(sectionEl);
+    }
+  }
+
+  function hideSections(immediate = false) {
     clearTimeout(sectionCloseTimer);
     sectionEntry = null;
     sectionSig = '';
-    if (sectionEl) sectionEl.hidden = true;
+    setSectionsVisible(false, immediate);
     tocEl?.classList.remove('cn-expanded');
     tocItems.forEach((item) => item.classList.remove('cn-parent'));
     resizeToc();
@@ -1218,7 +1298,7 @@ export function startNavigator(motion = {}, adapter = null) {
   }
 
   function positionSections() {
-    if (!sectionEntry || sectionEl.hidden) return;
+    if (!sectionEntry || !sectionsVisible) return;
     const i = entries.indexOf(sectionEntry);
     const item = tocItems[i];
     if (!item) return hideSections();
@@ -1229,14 +1309,14 @@ export function startNavigator(motion = {}, adapter = null) {
     const left = tocRect.right - Math.min(TOC_WIDTH_HOVER, innerWidth - 32);
     const beside = left - 12;
     if (beside >= 96) {
+      fitPanelHeight(sectionEl, sectionList, innerHeight - 32);
       sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, beside - 16) + 'px';
       sectionEl.style.left = beside - parseFloat(sectionEl.style.width) + 'px';
       sectionEl.style.top = Math.max(16, Math.min(rect.top - 5, innerHeight - sectionEl.offsetHeight - 16)) + 'px';
     } else {
       sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, innerWidth - 32) + 'px';
       sectionEl.style.left = Math.max(16, tocRect.right - parseFloat(sectionEl.style.width)) + 'px';
-      const height = Math.max(26, Math.min(320, tocRect.top - 28));
-      sectionEl.style.maxHeight = height + 'px';
+      fitPanelHeight(sectionEl, sectionList, tocRect.top - 28);
       sectionEl.style.top = Math.max(16, tocRect.top - sectionEl.offsetHeight - 12) + 'px';
     }
   }
@@ -1277,7 +1357,7 @@ export function startNavigator(motion = {}, adapter = null) {
     const sections = getSections(i);
     updateSectionMarker(i, sections);
     if (!sections.length) {
-      sectionEl.hidden = true;
+      setSectionsVisible(false);
       tocEl.classList.remove('cn-expanded');
       tocItems.forEach((item) => item.classList.remove('cn-parent'));
       sectionSig = '';
@@ -1301,15 +1381,12 @@ export function startNavigator(motion = {}, adapter = null) {
         sectionList.appendChild(item);
       });
     }
-    const wasHidden = sectionEl.hidden;
-    sectionEl.hidden = false;
+    setSectionsVisible(true);
     sectionEl.setAttribute('aria-label', label('sections'));
-    sectionEl.style.maxHeight = 'min(320px, calc(100vh - 32px))';
     tocEl.classList.add('cn-expanded');
     tocItems.forEach((item, index) => item.classList.toggle('cn-parent', index === i));
     positionSections();
     resizeToc();
-    if (wasHidden) motion.reveal?.(sectionEl);
   }
 
   function showSections(i) {
@@ -1546,7 +1623,7 @@ export function startNavigator(motion = {}, adapter = null) {
     const sig = entries.map((e) => (e.messageId || '') + ':' + e.key).join('|');
     if (sig !== tocSig) {
       rebuilt = true;
-      hideSections();
+      hideSections(true);
       tocItems.forEach(stopMarquee);
       tocSig = sig;
       tocList.textContent = '';
@@ -1571,6 +1648,8 @@ export function startNavigator(motion = {}, adapter = null) {
     refreshSectionMarkers();
     updateActive();
     refreshSections();
+    refreshControls();
+    resizeToc();
   }
 
   function scheduleRefresh() {
@@ -1588,6 +1667,7 @@ export function startNavigator(motion = {}, adapter = null) {
       scrollRaf = 0;
       safe(updateActive, '更新高亮');
       safe(positionSections, '章节位置');
+      safe(refreshControls, '按钮状态');
     });
   }
 
@@ -1887,24 +1967,61 @@ export function startNavigator(motion = {}, adapter = null) {
       }
 
       /* 按钮 */
-      #cgpt-btns { display: flex; flex-direction: column; gap: 8px; }
-      #cgpt-btns button {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 1px solid var(--cn-border);
-        background: var(--cn-bg);
+      #cgpt-btns { display: flex; flex-direction: column; gap: 0; width: 84px; box-sizing: border-box; padding: 4px; border: 1px solid var(--cn-border); border-radius: 12px; background: var(--cn-bg); box-shadow: var(--cn-shadow); }
+      #cgpt-btns[hidden] { display: none; }
+      #cgpt-btns button, #chatpick-export-button {
+        position: relative;
+        width: 100%;
+        height: 36px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
         color: var(--cn-fg);
-        display: flex;
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
         align-items: center;
-        justify-content: center;
+        justify-items: start;
+        text-align: left;
         cursor: pointer;
-        box-shadow: var(--cn-shadow);
-        padding: 0;
+        padding: 0 6px;
+        gap: 6px;
+        font: 12px/1.5 system-ui, sans-serif;
       }
-      #cgpt-btns button svg { pointer-events: none; }
-      #cgpt-btns button:focus-visible { outline: 2px solid var(--cn-active); outline-offset: 3px; }
+      #cgpt-btns button svg { width: 18px; height: 18px; }
+      #cgpt-btns button svg, #cgpt-nav-box button > .cn-spinner { grid-column: 1; grid-row: 1; }
+      #cgpt-btns .cn-control-label, #chatpick-export-button > span:not(.cn-spinner) { grid-column: 2; grid-row: 1; }
+      #cgpt-btns button:first-child .cn-control-label, #cgpt-btns button:last-child .cn-control-label { color: var(--cn-muted); }
+      #cgpt-btns button:nth-child(2), #cgpt-btns button:nth-child(4) { margin-top: 8px; }
+      #cgpt-btns button:nth-child(2)::before, #cgpt-btns button:nth-child(4)::before { content: ''; position: absolute; top: -5px; left: 8px; right: 8px; height: 1px; background: var(--cn-border); pointer-events: none; }
+      #cgpt-btns button:hover:not([aria-disabled="true"]), #chatpick-export-button:hover, #chatpick-export-button[aria-expanded="true"] { background: var(--cn-hover); color: var(--cn-fg); }
+      #cgpt-btns button[aria-disabled="true"] { opacity: .35; cursor: default; transform: none !important; }
+      #cgpt-btns button svg, #chatpick-export-button svg { pointer-events: none; }
+      #cgpt-btns button:focus-visible, #chatpick-export button:focus-visible { outline: 2px solid var(--cn-active); outline-offset: 3px; }
+      #cgpt-btns button[data-tooltip]::after, #chatpick-export-button[data-tooltip]::after {
+        content: attr(data-tooltip); position: absolute; right: calc(100% + 14px); top: 50%; transform: translateY(-50%);
+        padding: 6px 9px; border: 1px solid var(--cn-border); border-radius: 8px; background: var(--cn-bg); color: var(--cn-fg);
+        box-shadow: var(--cn-shadow); font: 12px/1.5 system-ui, sans-serif; white-space: nowrap; pointer-events: none; opacity: 0; visibility: hidden;
+        transition: opacity .12s ease, visibility .12s ease;
+      }
+      #cgpt-btns button:is(:hover,:focus-visible)::after, #chatpick-export-button:is(:hover,:focus-visible):not([aria-expanded="true"])::after { opacity: 1; visibility: visible; transition-delay: .2s; }
+      #cgpt-nav-box .cn-spinner { display: none; width: 14px; height: 14px; flex: none; box-sizing: border-box; border: 1.5px solid var(--cn-border); border-top-color: currentColor; border-radius: 50%; animation: cn-spin .75s linear infinite; }
+      #cgpt-nav-box button[data-busy="true"] .cn-spinner { display: block; }
+      #cgpt-nav-box button[data-busy="true"] > svg { display: none; }
+      @keyframes cn-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #cgpt-nav-box .cn-spinner { animation: none; } #cgpt-btns button::after, #chatpick-export-button::after { transition: none; } }
 
+      #chatpick-export { position: relative; width: 84px; font: 13px/1.5 system-ui, sans-serif; color: var(--cn-fg); }
+      #chatpick-export-button { box-sizing: border-box; width: 100%; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--cn-border) 65%, transparent); border-radius: 10px; background: var(--cn-bg); box-shadow: 0 1px 4px rgb(0 0 0 / .08); }
+      #chatpick-export-button > span:not(.cn-spinner) { color: var(--cn-muted); }
+      #chatpick-export-panel { position: fixed; box-sizing: border-box; width: min(270px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 14px; border: 1px solid var(--cn-border); border-radius: 14px; background: var(--cn-bg); box-shadow: var(--cn-shadow); }
+      #chatpick-export-panel[hidden] { display: none; }
+      #chatpick-export-panel p { margin: 10px 0 0; color: var(--cn-muted); font-size: 12px; }
+      #chatpick-export-panel p[hidden] { display: none; }
+      #chatpick-export-panel .chatpick-export-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 12px; }
+      #chatpick-export-panel button { font: inherit; display: block; width: 100%; padding: 8px 10px; margin-top: 6px; border: 1px solid var(--cn-border); border-radius: 8px; background: transparent; color: var(--cn-fg); cursor: pointer; text-align: left; }
+      #chatpick-export-panel #chatpick-export-close { flex: none; width: 32px; height: 32px; padding: 0; margin: 0; border: none; text-align: center; font: 22px/32px system-ui, sans-serif; }
+      #chatpick-export-panel button:hover { background: var(--cn-hover); }
+      #chatpick-export-panel button:disabled { opacity: .5; cursor: wait; }
       #cgpt-nav-toast {
         position: fixed;
         right: 70px;
@@ -1924,21 +2041,33 @@ export function startNavigator(motion = {}, adapter = null) {
     document.head.appendChild(style);
   }
 
-  function makeButton(iconPaths, title, handler) {
+  function makeButton(iconPaths, key, handler) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.title = title;
-    btn.setAttribute('aria-label', title);
+    btn.dataset.tooltip = label(key);
+    btn.setAttribute('aria-label', label(key));
+    btn.className = 'cn-control';
     btn.appendChild(createIcon(iconPaths));
+    const caption = document.createElement('span'); caption.className = 'cn-control-label'; caption.textContent = label(key + 'Short'); btn.appendChild(caption);
+    const spinner = document.createElement('span'); spinner.className = 'cn-spinner'; spinner.setAttribute('aria-hidden', 'true'); btn.insertBefore(spinner, caption);
     motion.button?.(btn);
-    btn.addEventListener('click', (e) => {
+    let operation = 0;
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (btn.getAttribute('aria-disabled') === 'true') return;
+      const current = ++operation;
       try {
-        handler();
+        const result = handler();
+        if (result?.then) {
+          btn.dataset.busy = 'true'; btn.setAttribute('aria-busy', 'true');
+          await result;
+        }
       } catch (err) {
         console.error('[ChatGPT 对话导航] 出错：', err);
         toast(label('error') + err.message);
+      } finally {
+        if (current === operation) { btn.removeAttribute('data-busy'); btn.removeAttribute('aria-busy'); safe(refreshControls, '按钮状态'); }
       }
     });
     return btn;
@@ -1996,10 +2125,12 @@ export function startNavigator(motion = {}, adapter = null) {
 
     const btns = document.createElement('div');
     btns.id = 'cgpt-btns';
-    btns.appendChild(makeButton(ICONS.start, label('start'), goToStart));
-    btns.appendChild(makeButton(ICONS.prev, label('prev'), () => stepQuestion(-1)));
-    btns.appendChild(makeButton(ICONS.next, label('next'), () => stepQuestion(1)));
-    btns.appendChild(makeButton(ICONS.bottom, label('bottom'), goToBottom));
+    btns.hidden = !settings.showJumpButtons;
+    btns.setAttribute('role', 'group'); btns.setAttribute('aria-label', label('controls'));
+    btns.appendChild(makeButton(ICONS.start, 'start', goToStart));
+    btns.appendChild(makeButton(ICONS.prev, 'prev', () => stepQuestion(-1)));
+    btns.appendChild(makeButton(ICONS.next, 'next', () => stepQuestion(1)));
+    btns.appendChild(makeButton(ICONS.bottom, 'bottom', goToBottom));
     box.appendChild(btns);
 
     document.body.appendChild(box);
@@ -2011,6 +2142,29 @@ export function startNavigator(motion = {}, adapter = null) {
     activeIdx = -1;
     tocWidth = TOC_WIDTH;
     safe(refreshToc, '目录');
+    installExport();
+    resizeToc();
+  }
+
+  function installExport() {
+    if (!settings.showExport) { stopExport?.(); stopExport = null; return; }
+    if (!exporter || stopExport || !getConvId()) return;
+    const box = document.getElementById('cgpt-nav-box');
+    if (!box) return;
+    stopExport = exporter(box, {
+      provider: adapter?.name || (isClaude ? 'Claude' : isDeepseek ? 'DeepSeek' : 'ChatGPT'),
+      conversationId: getConvId, language, readHistory,
+      buttonMotion: motion.button,
+      nodes: () => {
+        const users = getUserMessages();
+        return [...users, ...getRenderedAnswers()].sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1).map(node => {
+          const user = users.includes(node);
+          const selector = user ? (isDeepseek ? '.ds-collapsible-text' : '[data-user-message-bubble], [data-message-author-role="user"], [data-message-role="user"], .whitespace-pre-wrap') : (isDeepseek ? '.ds-assistant-message-main-content' : '.standard-markdown, .progressive-markdown, .markdown, [data-message-content], [data-assistant-markdown], [data-markdown-text-style="assistant-message"]');
+          const roots = adapter ? (user ? adapter.userRoots(node) : adapter.answerRoots(node)) : Array.from(node.querySelectorAll(selector));
+          return { node, role: user ? 'user' : 'assistant', id: messageIdOf(node) || '', roots: roots.length ? outermostUnique(roots) : [node] };
+        });
+      },
+    });
   }
 
   function setupObservers() {
@@ -2032,11 +2186,14 @@ export function startNavigator(motion = {}, adapter = null) {
     });
 
     // 页面切换主题时跟着变：<html>/<body> 的 class、data-theme、style 变化，或系统偏好变化
-    const onTheme = () => safe(applyTheme, '主题');
+    const onTheme = () => {
+      safe(applyTheme, '主题');
+      if (language() !== displayedLanguage) safe(refreshLanguage, '语言');
+    };
     const themeObserver = new MutationObserver(onTheme);
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'data-theme', 'data-color-scheme', 'data-mode', 'data-accent-color', 'data-chat-theme', 'style'],
+      attributeFilter: ['class', 'lang', 'data-theme', 'data-color-scheme', 'data-mode', 'data-accent-color', 'data-chat-theme', 'style'],
     });
     themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
     themeObserver.observe(document.head, { childList: true, subtree: true, characterData: true });
@@ -2077,6 +2234,7 @@ export function startNavigator(motion = {}, adapter = null) {
     if (!stopObservers) stopObservers = setupObservers();
     if (!document.getElementById('cgpt-nav-box')) init();
     else if (id !== convId) refreshToc();
+    installExport();
   }
 
   function boot() {

@@ -1,3 +1,4 @@
+import { attachConversationExport } from '../lib/conversation-export';
 import { startNavigator } from '../navigator';
 import { createNavigationMotion } from '../lib/navigation-motion';
 import { createWebChatAdapter } from '../lib/web-chat-adapters';
@@ -7,6 +8,6 @@ export default defineContentScript({
   runAt: 'document_idle',
   world: 'MAIN',
   main() {
-    startNavigator(createNavigationMotion(), createWebChatAdapter());
+    startNavigator(createNavigationMotion(), createWebChatAdapter(), attachConversationExport);
   },
 });

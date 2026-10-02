@@ -1970,7 +1970,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       }
 
       /* 按钮 */
-      #cgpt-btns { display: flex; flex-direction: column; gap: 0; width: 84px; box-sizing: border-box; padding: 4px; border: 1px solid var(--cn-border); border-radius: 12px; background: var(--cn-bg); box-shadow: var(--cn-shadow); }
+      #cgpt-btns { display: flex; flex-direction: column; gap: 0; width: 84px; box-sizing: border-box; padding: 3px 4px; border: 1px solid var(--cn-border); border-radius: 12px; background: var(--cn-bg); box-shadow: var(--cn-shadow); }
       #cgpt-btns[hidden] { display: none; }
       #cgpt-btns button, #chatpick-export-button {
         position: relative;
@@ -1990,12 +1990,13 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
         gap: 6px;
         font: 12px/1.5 system-ui, sans-serif;
       }
+      #cgpt-btns button { height: 30px; }
       #cgpt-btns button svg { width: 18px; height: 18px; }
       #cgpt-btns button svg, #chatpick-export-button > .cn-spinner { grid-column: 1; grid-row: 1; }
       #cgpt-btns .cn-control-label, #chatpick-export-button > span:not(.cn-spinner) { grid-column: 2; grid-row: 1; }
       #cgpt-btns button:first-child .cn-control-label, #cgpt-btns button:last-child .cn-control-label { color: var(--cn-muted); }
-      #cgpt-btns button:nth-child(2), #cgpt-btns button:nth-child(4) { margin-top: 8px; }
-      #cgpt-btns button:nth-child(2)::before, #cgpt-btns button:nth-child(4)::before { content: ''; position: absolute; top: -5px; left: 8px; right: 8px; height: 1px; background: var(--cn-border); pointer-events: none; }
+      #cgpt-btns button:nth-child(2), #cgpt-btns button:nth-child(4) { margin-top: 4px; }
+      #cgpt-btns button:nth-child(2)::before, #cgpt-btns button:nth-child(4)::before { content: ''; position: absolute; top: -3px; left: 8px; right: 8px; height: 1px; background: var(--cn-border); pointer-events: none; }
       #cgpt-btns button:hover:not([aria-disabled="true"]), #chatpick-export-button:hover, #chatpick-export-button[aria-expanded="true"] { background: var(--cn-hover); color: var(--cn-fg); }
       #cgpt-btns button[aria-disabled="true"] { opacity: .35; cursor: default; transform: none !important; }
       #cgpt-btns button svg, #chatpick-export-button svg { pointer-events: none; }
@@ -2027,9 +2028,13 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       #chatpick-export-panel button:disabled { opacity: .5; cursor: wait; }
       #cgpt-nav-toast {
         position: fixed;
-        right: 70px;
-        bottom: 160px;
-        max-width: 360px;
+        right: 18px;
+        bottom: 24px;
+        box-sizing: border-box;
+        max-width: min(360px, calc(100vw - 36px));
+        max-height: min(104px, calc(100vh - 48px));
+        overflow: hidden;
+        overflow-wrap: anywhere;
         z-index: 2147483647;
         background: rgba(0, 0, 0, 0.8);
         color: #fff;

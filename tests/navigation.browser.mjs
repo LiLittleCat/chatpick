@@ -12,7 +12,7 @@ const source = process.env.CHATPICK_BUILT
   : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator(', 'function startNavigator(') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {
-  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['start-control', 'start-control-dom-fallback', 'reverse-scroll', 'decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
+  const scenarios = process.env.CHATPICK_SCENARIOS?.split(',') || ['locating-toast', 'start-control', 'start-control-dom-fallback', 'reverse-scroll', 'decorated-text', 'duplicate-text', 'missing-middle', 'dom-fallback', 'escaped-heading', 'streamed-heading', 'modern-shell', 'deferred-heading', 'deferred-outline', 'search-shell', 'search-shell-duplicate', 'search-shell-dom-fallback', 'search-shell-multi', 'continuous-sections', 'switched-chat', 'initial-dom'];
   for (const scenario of scenarios.filter((scenario) => !scenario.startsWith('body-only-') && !['switched-chat', 'initial-dom'].includes(scenario))) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const messages = [
@@ -31,7 +31,7 @@ try {
     }
     const duplicate = ['duplicate-text', 'search-shell-duplicate'].includes(scenario);
     const searchShell = scenario.startsWith('search-shell');
-    const visible = duplicate ? ['u2'] : scenario === 'missing-middle' ? ['u1', 'u3'] : ['u1', 'u2', 'u3'];
+    const visible = duplicate || scenario === 'locating-toast' ? ['u2'] : scenario === 'missing-middle' ? ['u1', 'u3'] : ['u1', 'u2', 'u3'];
     let deferredAnswer = '';
     const html = '<!doctype html><style>body{margin:0}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden}article,[data-chatgpt-search-unit-key]{margin:100px 0}.spacer{height:600px}footer{height:1200px}</style><main>' + visible.map((id) => {
       const n = Number(id[1]);
@@ -58,6 +58,31 @@ try {
     await page.addScriptTag({ content: source });
     await page.waitForTimeout(500);
     assert.equal(await page.locator('#cgpt-toc .cn-item').count(), 3);
+    if (scenario === 'locating-toast') {
+      await page.locator('#cgpt-toc .cn-item').first().click();
+      await page.waitForFunction(() => document.getElementById('cgpt-nav-toast')?.textContent === 'Loading and locating…');
+      const separate = () => page.evaluate(() => {
+        const t = document.getElementById('cgpt-nav-toast').getBoundingClientRect();
+        const b = document.getElementById('cgpt-btns').getBoundingClientRect();
+        return t.bottom <= b.top || t.top >= b.bottom || t.right <= b.left || t.left >= b.right;
+      });
+      assert.ok(await separate(), 'Loading and locating must not cover jump controls');
+      if (process.env.CHATPICK_TOAST_SCREENSHOT) {
+        const clip = await page.evaluate(() => {
+          const t = document.getElementById('cgpt-nav-toast').getBoundingClientRect(), b = document.getElementById('cgpt-btns').getBoundingClientRect();
+          return { x: Math.min(t.left, b.left) - 8, y: Math.min(t.top, b.top) - 8, width: Math.max(t.right, b.right) - Math.min(t.left, b.left) + 16, height: Math.max(t.bottom, b.bottom) - Math.min(t.top, b.top) + 16 };
+        });
+        await page.screenshot({ path: process.env.CHATPICK_TOAST_SCREENSHOT, clip });
+      }
+      await page.setViewportSize({ width: 340, height: 500 });
+      await page.waitForTimeout(100);
+      assert.ok(await separate(), 'Status stays clear of controls on a narrow viewport');
+      assert.ok(await page.locator('#cgpt-nav-toast').evaluate(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }), 'Status remains within the viewport');
+      assert.deepEqual(errors, []);
+      console.log('PASS: locating status stays clear of jump controls on wide and narrow viewports');
+      await page.close();
+      continue;
+    }
     if (scenario.startsWith('start-control')) {
       const controls = page.locator('#cgpt-btns button');
       assert.equal(await page.evaluate(() => document.scrollingElement.scrollTop), 0);

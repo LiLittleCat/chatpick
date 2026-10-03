@@ -6,6 +6,8 @@ Navigate AI conversations by question and answer section.
 
 ChatPick is a Chrome extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation.
 
+![ChatPick question navigation and answer sections in an example conversation](docs/store-assets/en/01-questions.png)
+
 ## Features
 
 - **Question navigation** — Browse your questions and jump to the one you need, even when the same question appears more than once.

@@ -42,13 +42,13 @@
 英文简短描述与当前 manifest 一致，少于 132 个字符：
 
 ```text
-Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen and Qianwen chats by question
+Navigate AI conversations by question and answer section.
 ```
 
 中文简短描述：
 
 ```text
-按问题和回答章节快速导航 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 和千问 的长对话。
+在 AI 长对话中，按问题和回答章节快速跳转。
 ```
 
 默认语言建议 English，分类建议 Productivity。界面中英文切换已实现；商店多语言发布需另行配置本地化材料，界面设置不会自动生成商店译文。

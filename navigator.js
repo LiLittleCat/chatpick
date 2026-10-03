@@ -1758,7 +1758,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     applySiteColors(box, t);
   }
 
-  // 面板读取站点语义色，高亮优先读取品牌色；通用链接色不能覆盖站点身份。
+  // 高亮跟随站点外观强调色或品牌色；通用链接色不参与回退。
   const siteColorTokens = adapter ? adapter.colorTokens : isDeepseek ? {
     bg: ['--dsw-alias-bg-layer-1'],
     fg: ['--dsw-alias-label-primary'],
@@ -1782,7 +1782,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     border: ['--app-color-border', '--border-light', '--color-border-light'],
     track: ['--app-color-border-heavy', '--border-medium', '--color-border-heavy'],
     hover: ['--color-background-primary-soft-hover', '--surface-hover', '--color-token-surface-hover'],
-    active: ['--brand-color', '--brand-green'],
+    active: ['--app-color-text-accent', '--app-color-icon-accent', '--brand-color', '--brand-green'],
   };
 
   function applySiteColors(box, theme) {

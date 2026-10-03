@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'ChatPick',
-    description: 'Navigate ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen and Qianwen chats by question',
+    description: 'Navigate AI conversations by question and answer section.',
     permissions: ['storage'],
     web_accessible_resources: [{
       resources: ['fonts/NotoSansSC-Regular.ttf'],

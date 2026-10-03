@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Navigate long ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, and Qianwen conversations by question and answer section.
+Navigate AI conversations by question and answer section.
 
 ChatPick is a Chrome extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation.
 
@@ -71,6 +71,6 @@ For setup, source organization, and browser regression checks, see the [developm
 
 ## License
 
-[MIT](LICENSE) — Copyright © 2026 Yi Liu. Third-party dependencies retain their own licenses.
+[MIT](LICENSE)
 
 ChatPick is an independent project and is not affiliated with the supported AI providers.

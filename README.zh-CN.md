@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-在 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 和千问的长对话中，按问题和回答章节快速跳转。
+在 AI 长对话中，按问题和回答章节快速跳转。
 
 ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你找到之前的提问、回看回答中的某一节，或直接返回对话开头和底部。
 
@@ -71,6 +71,6 @@ ChatPick 使用已有登录状态读取当前对话，以提供导航和本地�
 
 ## 许可证
 
-[MIT](LICENSE)，Copyright © 2026 Yi Liu。第三方依赖保留各自的许可证。
+[MIT](LICENSE)
 
 ChatPick 是独立项目，与所支持的 AI 平台没有隶属关系。

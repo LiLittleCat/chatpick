@@ -21,9 +21,9 @@
 | 公开联系信息 | 邮箱为 `hi@yl.do`；需在开发者控制台完成邮箱验证。支持网址可使用独立支持页或公开仓库 Issues。当前仓库没有配置远程地址。 |
 | 隐私政策 URL | 设置面板已有随插件打包的政策入口，政策已包含联系邮箱；仍需托管为无需登录即可访问的页面并填入控制台。本地 Markdown 路径和扩展内部地址不能作为商店提交网址。 |
 | 商店图标 | 使用 `public/icon/128.png`；上传前检查透明背景和缩小后的可读性。 |
-| 商店截图 | 至少 1 张，最多 5 张；尺寸为 1280 × 800 或 640 × 400，优先前者。目前尚未准备商店截图。 |
-| 小宣传图 | 440 × 280，必需；目前尚未准备。 |
-| 大宣传图 | 1400 × 560，可选。 |
+| 商店截图 | 中英文各 5 张 1280 × 800 已准备，分别上传到对应语言的商店页面；见[图片预览与使用说明](store-assets/README.md)。尚未上传。 |
+| 小宣传图 | 必需的 [440 × 280 PNG](store-assets/promo-small.png) 已准备，尚未上传。 |
+| 大宣传图 | 可选的 [1400 × 560 PNG](store-assets/promo-marquee.png) 已准备，尚未上传。 |
 | 商店字段 | 名称、简短描述、详细说明、分类、默认语言；可使用下方文案。 |
 | 隐私表单 | 单一用途、权限理由、远程代码声明、数据类型与用途认证，必须与代码和隐私政策一致。 |
 | 审核说明 | 提供可复现的聊天页面测试步骤，并说明需要登录原网站。 |
@@ -31,7 +31,7 @@
 
 账号要求见 Google 的[注册说明](https://developer.chrome.com/docs/webstore/register)、[账号设置](https://developer.chrome.com/docs/webstore/set-up-account)、[两步验证要求](https://developer.chrome.com/docs/webstore/program-policies/two-step-verification)和[发布者身份说明](https://developer.chrome.com/docs/webstore/program-policies/trader-verification-faq)。图片规格见[官方图片指南](https://developer.chrome.com/docs/webstore/images)；商店字段见[商店页面说明](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)。
 
-截图建议使用同一组**合成对话**，分别展示 ChatGPT、Claude 和 DeepSeek 的问题目录、回答章节与不同品牌配色，再补一张设置界面。画面应反映实际功能，并清除账号、邮箱、私人对话和会话标识。
+已准备的截图使用新编合成对话，展示问题目录、回答章节、网站配色、导出和设置。插件界面取自生产构建；网站背景为简化的示例页面，不使用真实登录账号或私人聊天。后续更新截图仍需遵守这一要求。图片准备日期为 2026-10-03，生成方式见[图片说明](store-assets/README.md)。
 
 ## 可用的商店文案
 

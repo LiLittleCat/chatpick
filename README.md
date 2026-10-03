@@ -1,4 +1,4 @@
-# <img src="public/icon/logo.svg" width="36" height="36" align="middle" alt="" /> ChatPick
+# <img src="public/icon/logo.svg" width="36" height="36" align="absmiddle" alt="" /> ChatPick
 
 [简体中文](README.zh-CN.md)
 

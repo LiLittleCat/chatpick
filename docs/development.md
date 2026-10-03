@@ -49,6 +49,7 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `CHATPICK_BUILT=1 pnpm test:navigation` | ChatGPT question identity, repeated questions, headings, streaming, and DOM fallback |
 | `pnpm test:question-links` | Markdown link labels, URL underlines, literal code, safe text, repeated labels and unchanged question jumps; API/DOM fallback and Trusted Types |
 | `pnpm test:new-questions` | New sends on all eight providers, disjoint virtual windows, delayed visibility, in-flight reconciliation, stale snapshots and API failure |
+| `pnpm test:question-classification` | All eight providers: assistant-only windows, loading shells, new sends and every transient directory state; history and DOM fallback |
 | `pnpm test:claude` | Claude active branches, virtual lists, and answer sections |
 | `pnpm test:deepseek` | DeepSeek navigation, virtual lists, and fallback |
 | `pnpm test:sites` | Actual extension/popup: per-provider enablement, shared host aliases, persisted opt-out before history reads, SPA transitions, cancellation, and original DeepSeek navigation restoration |

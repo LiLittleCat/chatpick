@@ -473,11 +473,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
 
     const turns = getAllTurns();
     if (!turns.length) return [];
-    const judged = turns.map((t) => ({ t, u: isUserTurn(t) }));
-    if (judged.some((x) => x.u === true)) {
-      return judged.filter((x) => x.u === true && belongsToCurrentChat(x.t)).map((x) => x.t);
-    }
-    return turns.filter((node, i) => i % 2 === 0 && belongsToCurrentChat(node));
+    // Sparse/streaming windows may contain only answers or unfinished shells.
+    // Position never proves authorship: require a positive user classification.
+    return turns.filter(node => isUserTurn(node) === true && belongsToCurrentChat(node));
   }
 
   function getMsgText(turn) {

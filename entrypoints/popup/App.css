@@ -37,6 +37,19 @@
   margin: 12px 0;
 }
 
+.site-setting {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-setting-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
 .settings-row label {
   font-size: 13px;
 }
@@ -93,6 +106,15 @@
 .settings-toggle:focus-visible {
   outline: 2px solid var(--muted-foreground);
   outline-offset: 3px;
+}
+
+.settings-toggle:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.settings-toggle-row:has(.settings-toggle:disabled) label {
+  cursor: default;
 }
 
 .popup-footer {

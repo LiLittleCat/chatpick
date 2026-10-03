@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { SettingsSelect } from './SettingsSelect';
 import { SettingsToggle } from './SettingsToggle';
-import { DEFAULT_SETTINGS, normalizeSettings, resolveLanguage, type ColorSetting, type LanguageSetting, type NavigatorSettings, type ThemeSetting } from '@/settings';
+import { DEFAULT_SETTINGS, SITE_NAMES, isSiteEnabled, isSiteId, normalizeSettings, resolveLanguage, type ColorSetting, type LanguageSetting, type NavigatorSettings, type SiteId, type ThemeSetting } from '@/settings';
 import './App.css';
 
 const translations = {
   en: {
     settings: 'Settings',
+    enableSite: 'Enable on this website',
+    loadingSite: 'Checking the current website…',
+    unsupportedSite: 'Open a supported chat website to use this switch.',
     theme: 'Appearance',
     colors: 'Colors',
     siteColors: 'Follow chat colors',
@@ -25,6 +28,9 @@ const translations = {
   },
   zh: {
     settings: '设置',
+    enableSite: '在此网站启用',
+    loadingSite: '正在识别当前网站…',
+    unsupportedSite: '请在受支持的聊天网站中使用此开关。',
     theme: '明暗',
     colors: '配色',
     siteColors: '跟随网页配色',
@@ -45,13 +51,33 @@ const translations = {
 
 function App() {
   const [settings, setSettings] = useState<NavigatorSettings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [site, setSite] = useState<SiteId | null>(null);
+  const [siteLoaded, setSiteLoaded] = useState(false);
   const [activeSelect, setActiveSelect] = useState<'theme' | 'colors' | 'language' | null>(null);
   const [pageLanguage, setPageLanguage] = useState(() => resolveLanguage('auto', '', navigator.language));
 
   useEffect(() => {
+    const onStorage = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area !== 'local') return;
+      setSettings(current => normalizeSettings({ ...current, ...Object.fromEntries(Object.entries(changes).map(([key, change]) => [key, change.newValue])) }));
+    };
+    browser.storage.onChanged.addListener(onStorage);
     browser.storage.local.get(DEFAULT_SETTINGS)
       .then((value) => setSettings(normalizeSettings(value)))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setSettingsLoaded(true));
+    return () => browser.storage.onChanged.removeListener(onStorage);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    browser.tabs.query({ active: true, currentWindow: true })
+      .then(([tab]) => tab?.id ? browser.tabs.sendMessage(tab.id, { type: 'chatpick:get-site' }) : null)
+      .then(value => { if (active) setSite(isSiteId(value) ? value : null); })
+      .catch(() => { if (active) setSite(null); })
+      .finally(() => { if (active) setSiteLoaded(true); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -89,6 +115,16 @@ function App() {
   };
   const interfaceLanguage = resolveLanguage(settings.language, pageLanguage);
   const t = translations[interfaceLanguage];
+  const updateSite = async (enabled: boolean) => {
+    if (!site) return;
+    // Preserve switches changed in another popup/window since this one opened.
+    try {
+      const current = normalizeSettings(await browser.storage.local.get(DEFAULT_SETTINGS));
+      const disabledSites = current.disabledSites.filter(value => value !== site);
+      if (!enabled) disabledSites.push(site);
+      update({ disabledSites });
+    } catch (error) { console.error(error); }
+  };
 
   return (
     <main className="popup">
@@ -99,6 +135,11 @@ function App() {
           <span>{t.settings}</span>
         </div>
       </header>
+      <section className="site-setting">
+        <SettingsToggle label={t.enableSite} checked={isSiteEnabled(settings, site)} disabled={!settingsLoaded || !siteLoaded || !site}
+          onChange={(enabled) => void updateSite(enabled)} />
+        <p className="site-setting-hint">{site ? (site === 'qianwen' && interfaceLanguage === 'zh' ? '千问' : SITE_NAMES[site]) : siteLoaded ? t.unsupportedSite : t.loadingSite}</p>
+      </section>
       <div className="settings-row" style={{ zIndex: activeSelect === 'theme' ? 2 : 1 }}>
         <label id="theme-label">{t.theme}</label>
         <SettingsSelect<ThemeSetting> labelId="theme-label" value={settings.theme}

@@ -1,15 +1,18 @@
-import { DEFAULT_SETTINGS, normalizeSettings, resolveLanguage, type NavigatorSettings } from '../settings';
+import { DEFAULT_SETTINGS, isSiteEnabled, normalizeSettings, resolveLanguage, siteForHost, type NavigatorSettings } from '../settings';
 import { downloadTranscript, validateTranscript } from '../lib/export-files';
 
 export default defineContentScript({
   matches: ['https://chatgpt.com/*', 'https://chat.openai.com/*', 'https://claude.ai/*', 'https://chat.deepseek.com/*', 'https://gemini.google.com/*', 'https://grok.com/*', 'https://www.perplexity.ai/*', 'https://chat.qwen.ai/*', 'https://www.qianwen.com/*', 'https://qianwen.com/*'],
   runAt: 'document_idle',
   main() {
+    const site = siteForHost(location.hostname);
+    let settings = DEFAULT_SETTINGS;
+    let settingsLoaded = false;
     let exportRequest: { id: string; source: string; controller: AbortController } | null = null;
     let exportGesture: { source: string; expires: number } | null = null;
     document.addEventListener('click', event => {
       if (!event.isTrusted || !(event.target instanceof Element)) return;
-      if (event.target.closest('#chatpick-export-panel button[data-format]')) {
+      if (isSiteEnabled(settings, site) && event.target.closest('#chatpick-export-panel button[data-format]')) {
         exportGesture = { source: location.origin + location.pathname, expires: Date.now() + 60000 };
       }
     }, true);
@@ -20,16 +23,19 @@ export default defineContentScript({
     (window as Window & { navigation?: EventTarget }).navigation?.addEventListener('currententrychange', checkExportRoute);
     window.addEventListener('popstate', checkExportRoute);
     setInterval(checkExportRoute, 1000);
-    let settings = DEFAULT_SETTINGS;
-    const sendSettings = () => window.postMessage({
-      source: 'chatpick:extension',
-      type: 'settings',
-      settings,
-    }, location.origin);
+    const sendSettings = () => {
+      if (!settingsLoaded) return;
+      const { disabledSites: _disabledSites, ...preferences } = settings;
+      window.postMessage({
+        source: 'chatpick:extension', type: 'settings',
+        settings: { ...preferences, enabled: isSiteEnabled(settings, site) },
+      }, location.origin);
+    };
 
     const applySettings = (next: Partial<NavigatorSettings>) => {
       settings = normalizeSettings(next);
-      if (!settings.showExport) cancelExport();
+      settingsLoaded = true;
+      if (!settings.showExport || !isSiteEnabled(settings, site)) cancelExport();
       sendSettings();
     };
 
@@ -42,7 +48,7 @@ export default defineContentScript({
         return;
       }
       if (message.type === 'export') {
-        if (!settings.showExport || !exportGesture || exportGesture.expires < Date.now() || exportGesture.source !== location.origin + location.pathname || !document.getElementById('chatpick-export-panel') || !['markdown', 'pdf'].includes(message.format) || typeof message.id !== 'string' || message.id.length > 64) return;
+        if (!isSiteEnabled(settings, site) || !settings.showExport || !exportGesture || exportGesture.expires < Date.now() || exportGesture.source !== location.origin + location.pathname || !document.getElementById('chatpick-export-panel') || !['markdown', 'pdf'].includes(message.format) || typeof message.id !== 'string' || message.id.length > 64) return;
         exportGesture = null;
         if (!validateTranscript(message.chat)) {
           window.postMessage({ source: 'chatpick:extension', type: 'export-result', id: message.id, ok: false }, location.origin);
@@ -63,6 +69,7 @@ export default defineContentScript({
       }
     });
     browser.runtime.onMessage.addListener((message) => {
+      if (message?.type === 'chatpick:get-site') return Promise.resolve(site);
       if (message?.type === 'chatpick:get-theme') {
         return Promise.resolve(document.getElementById('cgpt-nav-box')?.getAttribute('data-theme') ?? null);
       }
@@ -71,7 +78,7 @@ export default defineContentScript({
       }
     });
 
-    browser.storage.local.get(DEFAULT_SETTINGS).then(applySettings).catch(console.error);
+    browser.storage.local.get(DEFAULT_SETTINGS).then(applySettings).catch(() => applySettings(DEFAULT_SETTINGS));
     browser.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
       const next = { ...settings };
@@ -80,6 +87,7 @@ export default defineContentScript({
       if (changes.colors) next.colors = changes.colors.newValue as NavigatorSettings['colors'];
       if (changes.showExport) next.showExport = changes.showExport.newValue as NavigatorSettings['showExport'];
       if (changes.showJumpButtons) next.showJumpButtons = changes.showJumpButtons.newValue as NavigatorSettings['showJumpButtons'];
+      if (changes.disabledSites) next.disabledSites = changes.disabledSites.newValue as NavigatorSettings['disabledSites'];
       applySettings(next);
     });
   },

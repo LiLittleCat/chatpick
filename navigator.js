@@ -11,7 +11,7 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-export function startNavigator(motion = {}, adapter = null, exporter = null) {
+export function startNavigator(motion = {}, adapter = null, exporter = null, initialSettings = {}) {
 
   const isClaude = location.hostname === 'claude.ai';
   const isDeepseek = location.hostname === 'chat.deepseek.com';
@@ -21,7 +21,18 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
   const CLAUDE_ROW = '[data-testid="transcript-row"][data-index]';
   const claudeMessageId = (index) => 'claude:' + convId + ':' + index;
 
-  let settings = { theme: 'auto', language: 'auto', colors: 'site', showExport: true, showJumpButtons: true };
+  const normalizePreferences = (input) => {
+    const value = input && typeof input === 'object' ? input : {};
+    return {
+      theme: value.theme === 'light' || value.theme === 'dark' ? value.theme : 'auto',
+      language: value.language === 'zh' || value.language === 'en' ? value.language : 'auto',
+      colors: value.colors === 'default' ? 'default' : 'site',
+      showExport: value.showExport !== false,
+      showJumpButtons: value.showJumpButtons !== false,
+      enabled: value.enabled !== false,
+    };
+  };
+  let settings = normalizePreferences(initialSettings);
   const labels = {
     en: {
       placeholder: '[Image/attachment]',
@@ -82,14 +93,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
 
   window.addEventListener('message', (event) => {
     if (event.source !== window || event.data?.source !== 'chatpick:extension' || event.data?.type !== 'settings') return;
-    const { theme, language, colors, showExport, showJumpButtons } = event.data.settings || {};
-    settings = {
-      theme: theme === 'light' || theme === 'dark' ? theme : 'auto',
-      language: language === 'zh' || language === 'en' ? language : 'auto',
-      colors: colors === 'default' ? 'default' : 'site',
-      showExport: showExport !== false,
-      showJumpButtons: showJumpButtons !== false,
-    };
+    settings = normalizePreferences(event.data.settings);
+    safe(syncRoute, '网站启用');
+    if (!settings.enabled) return;
     safe(refreshLanguage, '语言');
     const controls = document.getElementById('cgpt-btns');
     if (controls) controls.hidden = !settings.showJumpButtons;
@@ -352,7 +358,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       const messageId = claudeMessageId(turnIndex);
       if (message.sender === 'human') {
         const text = raw.replace(/\s+/g, ' ').trim() || PLACEHOLDER;
-        out.push({ key: normKey(text), text: text.slice(0, 300), messageId, turnIndex, local: false, sections: [] });
+        out.push({ key: normKey(text), text: text.slice(0, 300), messageId, apiMessageId: message.uuid, turnIndex, local: false, sections: [] });
       } else if (out.length) {
         out[out.length - 1].sections.push(...markdownSections(raw, messageId));
       }
@@ -504,6 +510,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     indices.forEach((i, k) => {
       if (i < 0) return;
       entries[i].userNode = msgs[k];
+      entries[i].scrollTop = contentScrollTop(msgs[k]);
       if (!entries[i].messageId && ids[k]) entries[i].messageId = ids[k];
     });
     const first = indices.find((i) => i >= 0);
@@ -562,8 +569,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     const index = isVirtualSite ? virtualTurnIndex(user) : -1;
     const nextIndex = entries.find((entry) => entry.turnIndex > index)?.turnIndex ?? Infinity;
     const userOrder = adapter?.order(user);
-    const nextOrder = adapter ? entries.find(entry => entry.order > userOrder)?.order ?? Infinity : null;
-    const answers = rendered.filter((node) => adapter
+    const orderedAdapter = adapter && userOrder !== null;
+    const nextOrder = orderedAdapter ? entries.find(entry => entry.order > userOrder)?.order ?? Infinity : null;
+    const answers = rendered.filter((node) => orderedAdapter
       ? adapter.order(node) > userOrder && adapter.order(node) < nextOrder
       : isVirtualSite
       ? virtualTurnIndex(node) > index && virtualTurnIndex(node) < nextIndex
@@ -752,6 +760,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
   let tokenCache = { t: '', exp: 0 };
 
   function getConvId() {
+    if (!settings.enabled) return null;
     if (adapter) return adapter.conversationId();
     // 项目及自定义 GPT 的详情页共用 /g/:slug/c/:id；不匹配它们的入口页。
     const pattern = isDeepseek ? /^\/a\/chat\/s\/([0-9a-zA-Z-]{8,})\/?$/
@@ -818,9 +827,20 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       const list = isDeepseek ? extractDeepseekMessages(data) : isClaude ? extractClaudeMessages(data) : extractUserMessages(data);
       if (seq === loadSeq && id === convId && list.length) {
         const previous = entries;
+        const historyIds = new Set(list.map(entry => entry.messageId));
+        const lastShared = previous.findLastIndex(entry => historyIds.has(entry.messageId));
+        const sameBranch = list.every((entry, index) =>
+          (entry.apiMessageId || entry.messageId) === (previous[index]?.apiMessageId || previous[index]?.messageId));
+        const pendingTail = previous.slice(lastShared + 1);
+        // A history snapshot can lag behind sends. Preserve the observed tail only
+        // when it extends the same active branch; a different branch replaces it.
+        if (sameBranch && lastShared >= 0 && pendingTail.every(entry => entry.local) && list.at(-1).messageId === previous[lastShared].messageId) {
+          list.push(...pendingTail.filter(entry => !historyIds.has(entry.messageId)));
+        }
         list.forEach((entry) => {
           const old = previous.find((candidate) => candidate.messageId && candidate.messageId === entry.messageId);
           if (old?.domSections && (!isVirtualSite || old.key === entry.key)) entry.domSections = old.domSections;
+          if (old?.key === entry.key) entry.userNode = old.userNode;
         });
         if (sectionEntry) sectionEntry = list.find((entry) => entry.messageId === sectionEntry.messageId) || null;
         if (!sectionEntry) hideSections();
@@ -1334,7 +1354,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       marker.hidden = !hasSections;
       marker.title = label('sections');
     }
-    item.setAttribute('aria-label', entries[i].text + (hasSections ? ' · ' + label('sections') : ''));
+    item.setAttribute('aria-label', item.querySelector('.cn-t').textContent + (hasSections ? ' · ' + label('sections') : ''));
   }
 
   function refreshSectionMarkers() {
@@ -1419,6 +1439,60 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     t.style.transform = 'translateX(0)';
   }
 
+  // Presentation only: retain the original text/key for message matching and exports.
+  function questionLabelParts(text) {
+    const parts = [];
+    const append = (value, link = false) => {
+      if (!value) return;
+      const previous = parts.at(-1);
+      if (previous?.link === link) previous.text += value;
+      else parts.push({ text: value, link });
+    };
+    const unescape = value => value.replace(/\\([\\`*{}\[\]()#+\-.!_:<>])/g, '$1');
+    for (let i = 0; i < text.length;) {
+      // Literal code stays literal, including URLs and Markdown-looking text.
+      if (text[i] === '`') {
+        const delimiter = text.slice(i).match(/^`+/)[0];
+        const end = text.indexOf(delimiter, i + delimiter.length);
+        const next = end < 0 ? text.length : end + delimiter.length;
+        append(text.slice(i, next)); i = next; continue;
+      }
+      if (text[i] === '\\' && i + 1 < text.length) {
+        append(text.slice(i, i + 2)); i += 2; continue;
+      }
+      if (text[i] === '[') {
+        let end = i + 1, depth = 1;
+        for (; end < text.length && depth; end++) {
+          if (text[end] === '\\') end++;
+          else if (text[end] === '[') depth++;
+          else if (text[end] === ']') depth--;
+        }
+        if (!depth && text[end] === '(') {
+          let close = end + 1, parens = 1;
+          for (; close < text.length && parens; close++) {
+            if (text[close] === '\\') close++;
+            else if (text[close] === '(') parens++;
+            else if (text[close] === ')') parens--;
+          }
+          const destination = unescape(text.slice(end + 1, close - 1)).trim();
+          if (!parens && /^<?(?:https?:\/\/|mailto:)/i.test(destination)) {
+            if (text[i - 1] === '!') append(text.slice(i, close));
+            else append(unescape(text.slice(i + 1, end - 1)) || destination, true);
+            i = close; continue;
+          }
+        }
+      }
+      const url = text.slice(i).match(/^https?:\/\/[^\s<>\[\]`]+/i);
+      if (url && (i === 0 || !/[\w]/.test(text[i - 1]))) {
+        let value = url[0].replace(/[.,!?;:，。！？；：]+$/, '');
+        while (value.endsWith(')') && (value.match(/\)/g) || []).length > (value.match(/\(/g) || []).length) value = value.slice(0, -1);
+        append(value, true); i += value.length; continue;
+      }
+      append(text[i]); i++;
+    }
+    return parts;
+  }
+
   function buildTocItem(text, i, onClick) {
     if (text === PLACEHOLDER) text = label('placeholder');
     const item = document.createElement('div');
@@ -1427,7 +1501,18 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     tw.className = 'cn-tw';
     const t = document.createElement('span');
     t.className = 'cn-t';
-    t.textContent = text;
+    if (onClick) t.textContent = text;
+    else {
+      for (const part of questionLabelParts(text)) {
+        if (!part.link) t.appendChild(document.createTextNode(part.text));
+        else {
+          const link = document.createElement('span');
+          link.className = 'cn-link';
+          link.textContent = part.text;
+          t.appendChild(link);
+        }
+      }
+    }
     tw.appendChild(t);
     item.appendChild(tw);
     if (!onClick) {
@@ -1441,7 +1526,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       marker.appendChild(icon);
       item.appendChild(marker);
     }
-    item.title = text;
+    item.title = t.textContent;
     item.tabIndex = 0;
     item.setAttribute('role', 'button');
     const activate = () => {
@@ -1569,13 +1654,19 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     if (!adapter && convId && !apiOk && !apiLoading && now - lastApiFetch > 15000) loadApi();
 
     // 首次加载先显示完整骨架，接口完成后一次呈现目录；失败再用页面内容。
-    if (!apiLoading) {
+    if (!apiLoading || entries.length) {
       const msgs = getUserMessages();
       const texts = msgs.map(getMsgText);
       const keys = texts.map(normKey);
       const ids = msgs.map(messageIdOf);
       const byId = new Map(entries.flatMap((entry, i) => entry.messageId ? [[entry.messageId, i]] : []));
       const known = ids.map((id) => byId.get(id) ?? -1);
+      msgs.forEach((node, k) => {
+        const entry = entries[known[k]];
+        if (entry?.local && (entry.key !== keys[k] || entry.text !== texts[k])) {
+          Object.assign(entry, { key: keys[k], text: texts[k], userNode: node, sections: [], domSections: [] });
+        }
+      });
       // 已知消息按 ID 合并；附件文字差异不能变成额外问题。
       if (adapter) {
         // Stable IDs and ordering also cover disjoint windows in virtualized chats.
@@ -1585,9 +1676,16 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
           if (existing) {
             if (existing.key !== keys[k]) { existing.sections = []; existing.domSections = []; }
             Object.assign(existing, { key: keys[k], text: texts[k], userNode: node, order: adapter.order(node), scrollTop: contentScrollTop(node) });
-          } else entries.push({ key: keys[k], text: texts[k], messageId: ids[k], userNode: node, order: adapter.order(node), scrollTop: contentScrollTop(node) });
+          } else {
+            const entry = { key: keys[k], text: texts[k], messageId: ids[k], userNode: node, order: adapter.order(node), scrollTop: contentScrollTop(node) };
+            // Without an absolute provider ordinal, mounted neighbors anchor new
+            // rows. Do not renumber cached questions using a sparse DOM index.
+            const next = entry.order === null ? entries.find(candidate =>
+              candidate.userNode?.isConnected && node.compareDocumentPosition(candidate.userNode) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
+            entries.splice(next ? entries.indexOf(next) : entries.length, 0, entry);
+          }
         });
-        entries.sort((a, b) => a.order - b.order);
+        if (entries.every(entry => entry.order !== null)) entries.sort((a, b) => a.order - b.order);
       } else if (isVirtualSite) {
         msgs.forEach((node, k) => {
           const turnIndex = virtualTurnIndex(node);
@@ -1601,9 +1699,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
           } else entries.push({ key: keys[k], text: texts[k], messageId: ids[k], turnIndex, local: true, userNode: node });
         });
         entries.sort((a, b) => a.turnIndex - b.turnIndex);
-      } else if (apiOk && known.some((i) => i >= 0)) {
+      } else if (apiOk && ids.some(Boolean)) {
         const lastKnown = known.findLastIndex((i) => i >= 0);
-        if (known[lastKnown] === entries.length - 1) {
+        if (lastKnown < 0 || known[lastKnown] === entries.length - 1) {
           for (let k = lastKnown + 1; k < msgs.length; k++) {
             if (ids[k] && !byId.has(ids[k])) {
               byId.set(ids[k], entries.length);
@@ -1611,6 +1709,19 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
             }
           }
         }
+      } else if (!apiOk && ids.some(Boolean) && entries.every(entry => entry.messageId)) {
+        // Failed API reads still retain disjoint observed windows by identity.
+        // Mounted neighbors anchor their order; cached scroll positions cover
+        // windows with no overlapping question, including older history.
+        msgs.forEach((node, k) => {
+          if (!ids[k] || entries.some(entry => entry.messageId === ids[k])) return;
+          const scrollTop = contentScrollTop(node);
+          const next = entries.find(entry => entry.userNode?.isConnected &&
+            node.compareDocumentPosition(entry.userNode) & Node.DOCUMENT_POSITION_FOLLOWING) ||
+            entries.find(entry => Number.isFinite(entry.scrollTop) && entry.scrollTop > scrollTop);
+          entries.splice(next ? entries.indexOf(next) : entries.length, 0,
+            { key: keys[k], text: texts[k], messageId: ids[k], userNode: node, scrollTop, local: true });
+        });
       } else {
         mergeKeys(keys, texts, !apiOk, apiOk, ids);
       }
@@ -1623,7 +1734,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
     }
 
     let rebuilt = false;
-    const sig = entries.map((e) => (e.messageId || '') + ':' + e.key).join('|');
+    const sig = JSON.stringify(entries.map(e => [e.messageId || '', e.key, e.text]));
     if (sig !== tocSig) {
       rebuilt = true;
       hideSections(true);
@@ -1962,6 +2073,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       }
       #cgpt-nav-box .cn-section-marker[hidden] { display: none; }
       #cgpt-nav-box .cn-t { display: inline-block; white-space: nowrap; }
+      #cgpt-nav-box .cn-link { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 
       /* 保留原生组件及其虚拟列表尺寸，显示 ChatPick 时收起重复入口。 */
       html.chatpick-deepseek-active [style*="--scroll-nav-page-padding"] {
@@ -2190,6 +2302,13 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       childList: true,
       subtree: true,
       characterData: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'aria-hidden', 'class', 'id', 'data-testid',
+        'data-message-id', 'data-message-author-role', 'data-message-role', 'data-user-message-bubble',
+        'data-chatgpt-search-unit-key', 'data-content-search-unit-key', 'data-chatgpt-search-message-ids',
+        'data-chatgpt-selection-message-id', 'data-turn', 'data-role', 'data-message-author',
+        'data-index', 'data-virtual-list-item-key', 'data-msg-id', 'data-chat-id',
+        'data-chat', 'data-chat-pos', 'data-offset', 'data-workflow-entry', 'data-renderer'],
     });
 
     // 页面切换主题时跟着变：<html>/<body> 的 class、data-theme、style 变化，或系统偏好变化
@@ -2234,6 +2353,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null) {
       cancelAnimationFrame(scrollRaf);
       scrollRaf = 0;
       document.documentElement.classList.remove('chatpick-deepseek-active');
+      tokenCache = { t: '', exp: 0 };
       ['cgpt-nav-box', 'cgpt-nav-toast', 'cgpt-nav-style'].forEach((name) => document.getElementById(name)?.remove());
       tocEl = tocList = tocSkeleton = sectionEl = sectionList = null;
       return;

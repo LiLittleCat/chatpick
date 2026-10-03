@@ -1,10 +1,11 @@
 // Only explicit questions may enter the directory, including answer-only virtual windows.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
-const source = fs.readFileSync(process.env.CHATPICK_NAV_SOURCE || new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8');
+const source = navigatorFixture(fs.readFileSync(process.env.CHATPICK_NAV_SOURCE || new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8'));
 const id = '11111111-1111-1111-1111-111111111111';
 const other = '22222222-2222-2222-2222-222222222222';
 const question = (index, text) => `<div data-workflow-entry="${index}"><div class="group/user-bubble"><button aria-label="Edit query">Edit</button><button aria-label="Copy query">Copy</button><div data-renderer="lm"><p>${text}</p></div></div></div>`;

@@ -11,6 +11,7 @@ ChatPick is a Chrome extension that puts a question directory beside your chat. 
 ## Features
 
 - **Question navigation** — Browse your questions and jump to the one you need, even when the same question appears more than once.
+- **Readable links** — Links in questions are underlined, with Markdown links shown by their label.
 - **Answer sections** — Hover a question to see its answer's headings, then select a section to jump to it.
 - **Conversation export** — Download the current conversation as Markdown or a searchable PDF with Chinese text, code blocks, and tables. Partial content is clearly identified before downloading. Images and attachments are represented by text notices.
 - **Quick controls** — Go to the start, previous question, next question, or bottom. The directory highlights your position as you scroll.
@@ -53,17 +54,20 @@ If you used an earlier navigation userscript, disable it before installing ChatP
 
 | Setting | Options | Default |
 | --- | --- | --- |
+| Enable on this website | On, Off; saved separately for each website | On |
 | Appearance | Follow chat appearance, Light, Dark | Follow chat appearance |
 | Colors | Follow chat colors, ChatPick default | Follow chat colors |
 | Language | Follow chat language, English, 中文 | Follow chat language |
 | Show export button | On, Off | On |
 | Show jump buttons | On, Off | On |
 
+The switch at the top enables ChatPick for the current website. All supported websites are enabled by default. Turning it off removes ChatPick navigation and restores any native navigation it had replaced. Your choice is remembered for that website and does not affect other websites.
+
 Changes apply immediately to open chats. Appearance and colors can be chosen independently. You can show or hide export and jump buttons independently; the conversation directory remains available. Open **Privacy policy** at the bottom of the settings panel to read the policy in English or Chinese.
 
 ## Privacy
 
-ChatPick reads your current conversation using your existing sign-in to provide navigation and local exports. Chat content is processed in your browser and is not sent to the developer. Only appearance, language, color, and button visibility preferences are saved in extension storage. There are no ads or analytics, and ChatPick does not send, edit, or delete chat messages.
+ChatPick reads your current conversation using your existing sign-in to provide navigation and local exports. Chat content is processed in your browser and is not sent to the developer. Only website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. There are no ads or analytics, and ChatPick does not send, edit, or delete chat messages.
 
 Read the [privacy policy](docs/privacy-policy.md) for data handling details. For privacy questions or support, contact [hi@yl.do](mailto:hi@yl.do).
 

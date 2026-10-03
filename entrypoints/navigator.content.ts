@@ -8,6 +8,13 @@ export default defineContentScript({
   runAt: 'document_idle',
   world: 'MAIN',
   main() {
-    startNavigator(createNavigationMotion(), createWebChatAdapter(), attachConversationExport);
+    // Wait for persisted settings before reading any conversation or credentials.
+    const initialize = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== location.origin || event.data?.source !== 'chatpick:extension' || event.data?.type !== 'settings') return;
+      window.removeEventListener('message', initialize);
+      startNavigator(createNavigationMotion(), createWebChatAdapter(), attachConversationExport, event.data.settings);
+    };
+    window.addEventListener('message', initialize);
+    window.postMessage({ source: 'chatpick:page', type: 'ready' }, location.origin);
   },
 });

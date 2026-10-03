@@ -65,12 +65,13 @@ Features
 • Export the current conversation as Markdown or a searchable PDF; partial content is labeled before downloading.
 • Browse an answer's headings and jump to the section you need.
 • Follow the chat page's colors, with highlights that match each website.
+• Enable or disable ChatPick separately for each website. All supported websites are enabled by default.
 • Choose automatic, light, or dark appearance. Follow the chat website's language or select English or Chinese.
 • Enjoy subtle interface animations that respect reduced-motion preferences. Content jumps remain instant.
 
 ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
 
-The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on ChatGPT, Claude, and DeepSeek. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
+The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on ChatGPT, Claude, and DeepSeek. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
 
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
@@ -90,7 +91,7 @@ Help users navigate their current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perpl
 ### Storage permission justification
 
 ```text
-Save only the user's appearance, language, color, and export/jump button visibility preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
+Save only the user's per-website enablement, appearance, language, color, and export/jump button visibility preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
 ```
 
 ### Site access justification
@@ -98,7 +99,7 @@ Save only the user's appearance, language, color, and export/jump button visibil
 虽然 manifest 没有单独声明 `host_permissions`，content script 的匹配范围仍带来网站访问权限，需要解释：
 
 ```text
-Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, chat.qwen.ai, www.qianwen.com, and qianwen.com to provide conversation navigation and user-initiated local exports. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on ChatGPT, Claude, and DeepSeek, and read page theme colors. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, or shared-link pages.
+Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, chat.qwen.ai, www.qianwen.com, and qianwen.com to provide conversation navigation and user-initiated local exports. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on ChatGPT, Claude, and DeepSeek, and read page theme colors. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, shared-link pages, or websites the user has disabled. Disabled websites keep only lightweight settings and route detection.
 ```
 
 ### Remote code
@@ -123,7 +124,7 @@ PDF 库与中文字体随包提供，字体资源仅开放给支持的网站；�
 3. Use the right-side question navigator to jump between questions. Hover a question with a chevron and select one of its answer headings.
 4. Test the start, previous question, next question, and bottom buttons on each supported website.
 5. Select Export above the navigation controls, choose Markdown or PDF, and check the downloaded file. Choosing a format starts the download directly. When history is unavailable or a reply is still generating, the menu and file show a partial-content notice. Files are generated locally; no developer service receives them.
-6. Open the toolbar popup and change appearance, colors, language, and the independent export/jump button switches. Changes apply immediately to the open chat; switch choices are retained after reopening the popup. The conversation directory stays available when the buttons are hidden.
+6. Open the toolbar popup. Use its first switch to turn ChatPick off for the current website: navigation disappears, any native navigation it had replaced is restored, and pending reads/exports are cancelled. Reload the chat to confirm it stays off; another supported website stays enabled. Turn it back on without reloading. Then change appearance, colors, language, and the independent export/jump button switches. Changes apply immediately to the open chat; switch choices are retained after reopening the popup. The conversation directory stays available when the buttons are hidden.
 7. Navigate to the site's home or project overview without reloading. The navigator disappears. Returning to a saved chat enables it again.
 
 Expected behavior: repeated questions stay distinct; answers without headings have no section menu; reduced-motion preferences are respected. If a provider history request fails, navigation uses messages already observed on the page.

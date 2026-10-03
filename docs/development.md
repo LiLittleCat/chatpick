@@ -47,8 +47,11 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | Command | Coverage |
 | --- | --- |
 | `CHATPICK_BUILT=1 pnpm test:navigation` | ChatGPT question identity, repeated questions, headings, streaming, and DOM fallback |
+| `pnpm test:question-links` | Markdown link labels, URL underlines, literal code, safe text, repeated labels and unchanged question jumps; API/DOM fallback and Trusted Types |
+| `pnpm test:new-questions` | New sends on all eight providers, disjoint virtual windows, delayed visibility, in-flight reconciliation, stale snapshots and API failure |
 | `pnpm test:claude` | Claude active branches, virtual lists, and answer sections |
 | `pnpm test:deepseek` | DeepSeek navigation, virtual lists, and fallback |
+| `pnpm test:sites` | Actual extension/popup: per-provider enablement, shared host aliases, persisted opt-out before history reads, SPA transitions, cancellation, and original DeepSeek navigation restoration |
 | `pnpm test:routes` | Conversation scope, SPA transitions, and request cancellation |
 | `pnpm test:colors` | Settings persistence, automatic interface language, independent control visibility switches, site theme changes, appearance overrides, and fallback |
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
@@ -57,6 +60,8 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `pnpm test:layout` | Compact question/section lists, viewport height limits, and keyboard scrolling |
 | `pnpm test:motion` | Answer panel enter/exit, interrupted closing, reduced motion, accessibility and route cleanup |
 | `pnpm test:perplexity` | Answer-only virtual windows, question remounting, conversation reset, and accurate jumps |
+
+Standalone MAIN-world suites supply the initial settings through `tests/navigator-fixture.mjs`, replacing the isolated script bridge omitted by those fixtures. Full-extension site/export suites use the real bridge. Production startup waits for stored settings so a disabled website never starts conversation reads.
 
 All suites except `test:navigation` read production output. The navigation suite can also run the source directly; use `CHATPICK_BUILT=1` for production checks. Select the suites relevant to the change, as described in [AGENTS.md](../AGENTS.md).
 

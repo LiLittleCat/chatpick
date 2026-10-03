@@ -1,10 +1,11 @@
 // Appearance accent colors and site brands must win over generic link colors.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
-const source = fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8');
+const source = navigatorFixture(fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8'));
 const browser = await chromium.launch({ headless: true });
 try {
   for (const { host, route, css, expected } of [

@@ -1,10 +1,11 @@
 // Conversation-only activation, including SPA entry/exit and pending request cancellation.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
-const source = fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8');
+const source = navigatorFixture(fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8'));
 const id = '11111111-1111-1111-1111-111111111111';
 const org = '22222222-2222-2222-2222-222222222222';
 const html = `<!doctype html><main><article data-turn="user"><div data-message-author-role="user" data-message-id="u1">Route question</div></article></main><div id="native" style="--scroll-nav-page-padding:15px">Native navigation</div>`;

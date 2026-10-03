@@ -1,11 +1,12 @@
 // Actual Motion bundle on synthetic chat pages, including interrupted exits.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
-const source = fs.readFileSync(path.resolve(import.meta.dirname, '../.output/chrome-mv3/content-scripts/navigator.js'), 'utf8');
+const source = navigatorFixture(fs.readFileSync(path.resolve(import.meta.dirname, '../.output/chrome-mv3/content-scripts/navigator.js'), 'utf8'));
 const browser = await chromium.launch({ headless: true });
 try {
   for (const reducedMotion of ['no-preference', 'reduce']) {

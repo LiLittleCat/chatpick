@@ -1,10 +1,11 @@
 // Synthetic DOM fixtures based on supported providers' rendered chat structure.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
-const source = fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8');
+const source = navigatorFixture(fs.readFileSync(new URL('../.output/chrome-mv3/content-scripts/navigator.js', import.meta.url), 'utf8'));
 const id = '11111111-1111-1111-1111-111111111111';
 const other = '22222222-2222-2222-2222-222222222222';
 const headings = n => `<h2>Section ${n}</h2><h3>Details ${n}</h3><pre><h4>Code heading</h4></pre><h5 class="sr-only">Hidden label</h5><h6 aria-hidden="true">Hidden heading</h6>`;

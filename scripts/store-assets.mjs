@@ -25,7 +25,7 @@ const copy = {
       ['Find the section you need.', 'Browse answer headings without losing your place.'],
       ['At home in your chat.', 'Website colors. Light and dark appearance.'],
       ['Keep a copy of your conversation.', 'Download as Markdown or PDF, right from the navigator.'],
-      ['Make it feel like yours.', 'Choose appearance, language, colors and which buttons to show.'],
+      ['Make it feel like yours.', 'Choose websites, appearance, language, colors and which buttons to show.'],
     ],
     light: 'Light appearance', dark: 'Dark appearance', footer: 'Navigate AI conversations by question and answer section.',
   },
@@ -39,7 +39,7 @@ const copy = {
       ['长回答，也能按章节找。', '展开回答标题，直接跳到需要的内容。'],
       ['熟悉的网页，熟悉的配色。', '跟随网站主题色，适配浅色和深色界面。'],
       ['把对话，留一份在本地。', '在导航中直接下载 Markdown 或 PDF。'],
-      ['按你的习惯来。', '明暗、语言、配色和按钮，都可以自己选。'],
+      ['按你的习惯来。', '网站启用、明暗、语言、配色和按钮，都可以自己选。'],
     ],
     light: '浅色界面', dark: '深色界面', footer: '按问题与回答章节，快速找到对话中的内容。',
   },
@@ -88,7 +88,7 @@ async function render(file, html, width = 1280, height = 800) {
   await layout.evaluate(() => document.fonts.ready);
   await layout.screenshot({ path: path.join(output, file), scale: 'css' });
 }
-async function capture(provider, locale, mode) {
+async function capture(provider, locale, mode, keepOpen = false) {
   const data = fixture(provider, locale);
   const page = await context.newPage();
   const host = { ChatGPT: 'chatgpt.com', Claude: 'claude.ai', DeepSeek: 'chat.deepseek.com' }[provider];
@@ -126,8 +126,8 @@ async function capture(provider, locale, mode) {
   const image = await page.screenshot();
   const crop = await page.locator('#cgpt-toc').screenshot();
   const sections = mode !== 'export' ? await page.locator('#cgpt-sections').screenshot() : null;
-  await page.close();
-  return { image, crop, sections };
+  if (!keepOpen) await page.close();
+  return { image, crop, sections, page: keepOpen ? page : null };
 }
 try {
   fs.mkdirSync(output, { recursive: true });
@@ -152,17 +152,21 @@ try {
       console.log(`Rendered ${dir}/${filename}`);
     }
     const captures = [];
+    const settingsChat = await capture('ChatGPT', locale, 'settings', true);
     await popup.setViewportSize({ width: 340, height: 600 });
     for (const theme of ['light', 'dark']) {
       await popup.evaluate(settings => chrome.storage.local.set(settings), { theme, language: locale, colors: 'site', showExport: true, showJumpButtons: true });
+      await settingsChat.page.bringToFront();
       await popup.reload();
       await popup.locator('main.popup').waitFor();
+      await popup.waitForFunction(() => !document.querySelector('.site-setting button')?.disabled);
       await popup.waitForFunction(dark => document.documentElement.classList.contains('dark') === dark, theme === 'dark');
       await popup.waitForTimeout(150);
       captures.push(await popup.locator('main.popup').screenshot());
     }
+    await settingsChat.page.close();
     const [title, subtitle] = copy[locale].cards[4];
-    await render(`${dir}/05-settings.png`, template(`<div class="brand"><img src="${logo}">ChatPick</div><h1>${title}</h1><p class="subtitle">${subtitle}</p><div class="settings"><figure><figcaption>${copy[locale].light}</figcaption><img src="${png(captures[0])}"></figure><figure><figcaption>${copy[locale].dark}</figcaption><img src="${png(captures[1])}"></figure></div>`, '.settings{position:absolute;top:198px;left:196px;display:flex;gap:72px}figure{margin:0;width:408px}figure img{width:408px;display:block;border-radius:16px;box-shadow:0 16px 35px #123a281c;border:1px solid #d7ddd5}figcaption{font-size:15px;margin:0 0 16px;color:#5f7368}'));
+    await render(`${dir}/05-settings.png`, template(`<div class="brand"><img src="${logo}">ChatPick</div><h1>${title}</h1><p class="subtitle">${subtitle}</p><div class="settings"><figure><figcaption>${copy[locale].light}</figcaption><img src="${png(captures[0])}"></figure><figure><figcaption>${copy[locale].dark}</figcaption><img src="${png(captures[1])}"></figure></div>`, '.settings{position:absolute;top:187px;left:226px;display:flex;gap:80px}figure{margin:0;width:374px}figure img{width:374px;display:block;border-radius:16px;box-shadow:0 16px 35px #123a281c;border:1px solid #d7ddd5}figcaption{font-size:15px;margin:0 0 16px;color:#5f7368}'));
     console.log(`Rendered ${dir}/05-settings.png`);
   }
   await render('promo-small.png', template(`<div class="tile-logo"><img src="${logo}"></div><div class="tile-name">ChatPick</div><div class="lines"><i></i><i></i><i></i><i></i><i></i></div>`, 'body{background:#123b2b}.tile-logo{position:absolute;left:42px;top:43px;width:154px;height:154px}.tile-logo img{width:100%;height:100%}.tile-name{position:absolute;left:45px;bottom:32px;color:#f3ffec;font-size:34px;font-weight:650;letter-spacing:-1px}.lines{position:absolute;left:252px;top:69px;width:146px;display:flex;flex-direction:column;gap:18px}.lines i{height:10px;border-radius:5px;background:#49765a}.lines i:before{content:"";display:block;position:relative;left:-20px;top:1px;width:8px;height:8px;border-radius:4px;background:#75a882}.lines i:nth-child(2){background:#b9ee91;width:123px}.lines i:nth-child(3){width:101px}.lines i:nth-child(4){width:139px}.lines i:nth-child(5){width:84px}'), 440, 280);

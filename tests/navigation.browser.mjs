@@ -1,6 +1,7 @@
 // Run: CHATPICK_PLAYWRIGHT_MODULE=/path/to/playwright pnpm test:navigation
 // Uses browser fixtures only; no ChatGPT account or network data is needed.
 import fs from 'node:fs';
+import { navigatorFixture } from './navigator-fixture.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -8,7 +9,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.CHATPICK_PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(import.meta.dirname, '..');
 const source = process.env.CHATPICK_BUILT
-  ? fs.readFileSync(path.join(root, '.output/chrome-mv3/content-scripts/navigator.js'), 'utf8')
+  ? navigatorFixture(fs.readFileSync(path.join(root, '.output/chrome-mv3/content-scripts/navigator.js'), 'utf8'))
   : fs.readFileSync(path.join(root, 'navigator.js'), 'utf8').replace('export function startNavigator(', 'function startNavigator(') + '\nstartNavigator();';
 const browser = await chromium.launch({ headless: true });
 try {

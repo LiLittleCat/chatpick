@@ -24,7 +24,7 @@ try {
       const listeners = [];
       window.browser = {
         runtime: { id: 'fixture', getURL: path => new URL(path, 'https://chatpick.test').href, onMessage: { addListener() {} } },
-        tabs: { query: async () => [{ id: 1 }], sendMessage: async (_id, message) => message.type === 'chatpick:get-language' ? 'zh' : 'light' },
+        tabs: { query: async () => [{ id: 1 }], sendMessage: async (_id, message) => message.type === 'chatpick:get-site' ? 'chatgpt' : message.type === 'chatpick:get-language' ? 'zh' : 'light' },
         storage: {
           local: {
             get: async defaults => ({ ...defaults, ...await window.readFixtureSettings() }),
@@ -35,7 +35,7 @@ try {
               listeners.forEach(listener => listener(changes, 'local'));
             },
           },
-          onChanged: { addListener(listener) { listeners.push(listener); } },
+          onChanged: { addListener(listener) { listeners.push(listener); }, removeListener(listener) { const index = listeners.indexOf(listener); if (index >= 0) listeners.splice(index, 1); } },
         },
       };
     });
@@ -151,7 +151,7 @@ try {
   await jumpSwitch.press('Space');
   assert.equal(stored.value.showJumpButtons, false);
   await popup.reload();
-  await popup.waitForFunction(() => Array.from(document.querySelectorAll('[role="switch"]')).every(button => button.getAttribute('aria-checked') === 'false'));
+  await popup.waitForFunction(() => Array.from(document.querySelectorAll('.settings-toggles [role="switch"]')).every(button => button.getAttribute('aria-checked') === 'false'));
   assert.equal(await exportSwitch.getAttribute('aria-checked'), 'false');
   assert.equal(await jumpSwitch.getAttribute('aria-checked'), 'false');
   await exportSwitch.press('Enter');

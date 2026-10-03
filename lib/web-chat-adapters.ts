@@ -9,7 +9,8 @@ export type WebChatAdapter = {
   text: (node: Element) => string;
   userRoots: (node: Element) => Element[];
   answerRoots: (node: Element) => Element[];
-  order: (node: Element) => number;
+  // Null means the DOM has no stable absolute ordinal across virtual windows.
+  order: (node: Element) => number | null;
   colorTokens: Record<ColorKey, string[]>;
   accent: (dark: boolean) => string;
 };
@@ -99,7 +100,7 @@ export function createWebChatAdapter(): WebChatAdapter | null {
     return null;
   }
 
-  function order(node: Element): number {
+  function order(node: Element): number | null {
     if (name === 'qianwen') {
       const position = node.closest('.chat-round')?.getAttribute('data-chat-pos');
       if (position && /^\d+$/.test(position)) return Number(position) * 2 + (node.matches(config.answer) ? 1 : 0);
@@ -115,8 +116,7 @@ export function createWebChatAdapter(): WebChatAdapter | null {
       const entry = node.closest('[data-workflow-entry]')?.getAttribute('data-workflow-entry');
       if (entry !== undefined && entry !== null) return Number(entry);
     }
-    const elements = query(config.user + ',' + config.answer);
-    return elements.indexOf(node as HTMLElement);
+    return null;
   }
 
   function messageId(node: Element): string {

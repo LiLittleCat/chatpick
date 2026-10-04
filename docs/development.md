@@ -14,6 +14,12 @@ pnpm build:policy # Standalone public policy pages in .output/public-policy/
 
 Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands are available in `package.json`; browser regression coverage currently targets Chromium.
 
+## GitHub builds
+
+The [Build Chrome extension workflow](../.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual runs. It uses Node.js 24 and pnpm 12.6.0, installs the frozen lockfile, checks TypeScript, and runs `pnpm zip`, which performs the production build before packaging. It verifies the ZIP's root manifest, version, bundled PDF resources, and license notices before uploading it.
+
+Open the repository's **Actions → Build Chrome extension**, select a successful run, and download `chatpick-<version>-chrome.zip` from **Artifacts**. The artifact is the extension ZIP itself, ready to upload to the Chrome Web Store or extract for local installation. Artifacts are retained for 30 days. The workflow builds the package; run the relevant browser regression suites separately before release.
+
 ## Source responsibilities
 
 | Source | Responsibility |

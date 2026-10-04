@@ -4,7 +4,7 @@
 
 ## 当前已具备
 
-- Chrome Manifest V3 构建和 `pnpm zip` 打包命令。
+- Chrome Manifest V3 构建、`pnpm zip` 打包命令，以及 [GitHub Actions 自动构建](../.github/workflows/build.yml)。
 - 扩展名称、简短描述、版本号，以及 `public/icon/` 中的 PNG 图标。
 - 限定在支持的域名的 content scripts，以及用于设置的 `storage` 权限。
 - 随扩展打包的 React、Motion 与导航代码，没有远程可执行代码或开发者数据服务器。
@@ -150,5 +150,7 @@ Expected behavior: repeated questions stay distinct; answers without headings ha
 4. 检查 ZIP 根目录的 manifest、支持的域名、权限、本地脚本和图标，以及许可证通知。导出依赖与项目许可证通知已随 `THIRD-PARTY-NOTICES.txt` 打包，Noto 字体许可证在 `fonts/OFL.txt`；核对其他既有依赖的分发要求。
 5. 在开发者控制台新建条目，上传 ZIP，填写商店页面、隐私和分发字段及审核步骤，预览材料后提交审核。
 6. 发布后记录商店链接并更新 README；网站适配或数据行为变化时同步更新说明。
+
+也可以在仓库 **Actions → Build Chrome extension** 中打开对应提交的成功构建，从 **Artifacts** 下载 `chatpick-<version>-chrome.zip`。下载的是可直接上传商店的扩展 ZIP，产物保留 30 天。推送到 `main`、向 `main` 提交 PR 或点击 **Run workflow** 都会触发构建；提交审核前仍需完成浏览器测试和上述手动验证。
 
 打包要求见[提交准备说明](https://developer.chrome.com/docs/webstore/prepare)，提交流程见[官方发布指南](https://developer.chrome.com/docs/webstore/publish)。上述清单用于准备材料，不代表已经通过审核或完成发布。

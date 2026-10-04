@@ -9,6 +9,7 @@ pnpm dev        # WXT development mode
 pnpm compile    # TypeScript checks
 pnpm build      # Chrome Manifest V3 production build
 pnpm zip        # Build and package into .output/
+pnpm build:policy # Standalone public policy pages in .output/public-policy/
 ```
 
 Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands are available in `package.json`; browser regression coverage currently targets Chromium.
@@ -20,16 +21,19 @@ Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands a
 | `navigator.js` | Shared navigation, existing provider history readers, active branches, question/section location, route lifecycle, and site colors |
 | `entrypoints/navigator.content.ts` | Start navigation in the page MAIN world |
 | `entrypoints/content.ts` | Bridge validated extension settings from the isolated world |
-| `lib/web-chat-adapters.ts` | Gemini, Grok, Perplexity, Qwen and Qianwen DOM selectors, saved-chat routes, message identity and color tokens |
+| `lib/web-chat-adapters.ts` | ChatGPT Dots, Gemini, Grok, Perplexity, Qwen and Qianwen DOM selectors, saved-chat routes, message identity and color tokens |
 | `lib/conversation-export.ts` | Full transcript extraction, branch selection, DOM-to-Markdown conversion, export menu and cancellation |
 | `lib/pdf-font.ts` | Adapt the current browser fontkit subset encoder to pdf-lib |
-| `lib/export-files.ts` | Local Markdown downloads and searchable, paginated PDF rendering with bundled fonts |
+| `lib/export-files.ts` | Validate transcripts, download Markdown, and load the bundled PDF module only after choosing PDF |
+| `lib/export-pdf.ts`, `entrypoints/pdf-export.ts` | Searchable, paginated PDF rendering, built as a self-contained ES module for isolated-world loading |
 | `lib/navigation-motion.ts` | Navigator animation and reduced-motion handling |
 | `entrypoints/popup/` | React settings interface |
 | `entrypoints/privacy/` | Packaged policy page, rendered from the English and Chinese policy documents |
 | `settings.ts` | Defaults, types, and validation |
 
-The privacy page imports `docs/privacy-policy.md` and `docs/privacy-policy.zh-CN.md` at build time. Keep translations aligned when policy wording changes. Its URL is local to the extension; Chrome Web Store submission still needs a publicly accessible policy URL.
+The privacy page imports `docs/privacy-policy.md` and `docs/privacy-policy.zh-CN.md` at build time. Keep translations aligned when policy wording changes. Its URL is local to the extension; Chrome Web Store submission still needs a publicly accessible policy URL. `pnpm build:policy` renders the same documents as script-free English and Chinese HTML pages; deploy only `.output/public-policy/`, then verify the public URL before filling the dashboard.
+
+WXT content scripts normally bundle dynamic imports into their IIFE. The `pdf-export` entrypoint uses a targeted Vite hook to emit a self-contained ES module. The isolated script imports its fixed extension URL only for PDF exports; its WAR match scope is the same supported hosts as the font. Navigation and Markdown exports never load either resource.
 
 ## Browser regression checks
 
@@ -54,6 +58,8 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `pnpm test:deepseek` | DeepSeek navigation, virtual lists, and fallback |
 | `pnpm test:sites` | Actual extension/popup: per-provider enablement, shared host aliases, persisted opt-out before history reads, SPA transitions, cancellation, and original DeepSeek navigation restoration |
 | `pnpm test:routes` | Conversation scope, SPA transitions, and request cancellation |
+| `pnpm test:dots` | Actual extension: Dots identity, new sends, multiple replies, headings, theme, exports, enablement and switching to regular ChatGPT chats |
+| `pnpm test:short-answers` | Short reply tails: bottom highlight, clamped selections, Prev/Next, manual scrolling, nested/reversed scroll containers and conversations that fit on one screen |
 | `pnpm test:gemini-routes` | Gemini ordinary and account-indexed routes, SPA entry/exit, and excluded paths |
 | `pnpm test:colors` | Settings persistence, automatic interface language, independent control visibility switches, site theme changes, appearance overrides, and fallback |
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
@@ -75,7 +81,7 @@ The pathname must match a saved-chat detail route; query strings and fragments d
 
 | Provider | Enabled pathname | Excluded examples |
 | --- | --- | --- |
-| ChatGPT | `/c/:id`, `/g/g-…/c/:id` | Home, project/GPT entry, settings, `/share/:id` |
+| ChatGPT | `/c/:id`, `/g/g-…/c/:id`, `/dots/:uuid` | Home, project/GPT entry, settings, `/share/:id` |
 | Claude | `/chat/:id` | `/new`, `/projects`, `/project/:id`, shared links |
 | DeepSeek | `/a/chat/s/:id` | Home, `/a/chat`, settings |
 | Gemini | `/app/:16-hex-id`, `/u/:account-number/app/:16-hex-id` | Home/new-chat entry (including `/u/:account-number/app`), settings, `/search`, `/library`, `/students`, notebooks, shared links |
@@ -84,10 +90,10 @@ The pathname must match a saved-chat detail route; query strings and fragments d
 | Qwen | `/c/:uuid` | Home, `/projects`, `/community`, `/coder`, settings, shared links |
 | Qianwen | `/chat/:32-hex-id` on `www.qianwen.com` and `qianwen.com` | Home, chat entry, settings, shared links and other detail paths |
 
-Gemini, Grok, Perplexity, Qwen, and Qianwen read rendered messages rather than requesting private history APIs. Observed questions and headings stay in page memory as virtualized messages unmount, and reset on conversation changes. On these sites, scrolling through a long conversation adds previously unloaded messages to the directory. Preserve Perplexity's workflow placeholder order when constructing virtual-list fixtures. Gemini fixtures must enforce Trusted Types; navigation must not write HTML strings.
+ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen read rendered messages rather than requesting private history APIs. Observed questions and headings stay in page memory as virtualized messages unmount, and reset on conversation changes. On these sites, scrolling through a long conversation adds previously unloaded messages to the directory. Preserve Perplexity's workflow placeholder order when constructing virtual-list fixtures. Gemini fixtures must enforce Trusted Types; navigation must not write HTML strings.
 
 ## Conversation exports
 
-The MAIN-world history reader is shared by navigation and export. A fresh export snapshot contains full user/final-assistant text rather than navigation summaries. DOM-only providers and API failures export currently rendered content with an explicit partial warning in the menu and file; choosing a format downloads directly without a second confirmation. No completeness claim is made for virtualized history. Non-text attachments are labeled and not fetched. A validated, user-initiated bridge passes transient transcript data to the isolated script. It generates files locally without storage or downloads permissions, and aborts on cancellation or route changes. PDF uses pdf-lib, fontkit and marked, with a bundled Noto Sans SC font and glyph subsetting. Unsupported glyphs use an explicit Unicode-codepoint label; formulas retain their source notation. License notices are packaged in `public/THIRD-PARTY-NOTICES.txt` and `public/fonts/OFL.txt`.
+The MAIN-world history reader is shared by navigation and export. A fresh export snapshot contains full user/final-assistant text rather than navigation summaries. DOM-only providers and API failures export currently rendered content with an explicit partial warning in the menu and file; choosing a format downloads directly without a second confirmation. No completeness claim is made for virtualized history. Non-text attachments are labeled and not fetched. A validated, user-initiated bridge passes transient transcript data to the isolated script. It generates files locally without storage or downloads permissions, and aborts on cancellation or route changes. PDF uses pdf-lib, fontkit and marked, loaded on demand with a bundled Noto Sans SC font and glyph subsetting. Unsupported glyphs use an explicit Unicode-codepoint label; formulas retain their source notation. License notices are packaged in `public/THIRD-PARTY-NOTICES.txt` and `public/fonts/OFL.txt`.
 
 Font subsetting uses fontkit 2 with a streaming-interface adapter; older fontkit versions corrupted CJK glyphs in rendered PDFs. Validate generated files visually as well as by extracting text. The bundled static TrueType font was instantiated at weight 400; its source, license and checksum are in `public/fonts/README.txt`.

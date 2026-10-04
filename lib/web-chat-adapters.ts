@@ -11,11 +11,33 @@ export type WebChatAdapter = {
   answerRoots: (node: Element) => Element[];
   // Null means the DOM has no stable absolute ordinal across virtual windows.
   order: (node: Element) => number | null;
-  colorTokens: Record<ColorKey, string[]>;
-  accent: (dark: boolean) => string;
+  // Adapters on the existing host may reuse its palette.
+  colorTokens?: Record<ColorKey, string[]>;
+  accent?: (dark: boolean) => string;
 };
 
 const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+export function createDotsChatAdapter(): WebChatAdapter | null {
+  if (location.hostname !== 'chatgpt.com') return null;
+  const route = new RegExp(`^/dots/(${uuid})/?$`, 'i');
+  const conversationId = () => {
+    const id = location.pathname.match(route)?.[1];
+    return id ? 'dots:' + id : null;
+  };
+  const rows = (self: boolean) => Array.from(document.querySelectorAll<HTMLElement>(
+    '.thread-pane article.message-row[data-message-id]' + (self ? '.self' : ':not(.self)')
+  )).filter(node => !node.closest('aside, nav, [role="dialog"], [hidden], [aria-hidden="true"]'));
+  const roots = (node: Element) => Array.from(node.querySelectorAll('.message-body .message-text'));
+  return {
+    name: 'ChatGPT', conversationId,
+    users: () => rows(true), answers: () => rows(false),
+    messageId: node => `${conversationId()}:${node.getAttribute('data-message-id')}:${node.classList.contains('self') ? 'user' : 'assistant'}`,
+    order: () => null,
+    text: node => roots(node).map(root => root.textContent || '').join(' ').replace(/\s+/g, ' ').trim(),
+    userRoots: roots, answerRoots: roots,
+  };
+}
 const qianwen = {
   name: 'Qianwen', route: /^\/chat\/([0-9a-f]{32})\/?$/i,
   user: '.message-list-content-container .chat-round[data-chat] .chat-question-wrap',

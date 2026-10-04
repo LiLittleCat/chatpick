@@ -3,4 +3,4 @@ import type { attachConversationExport } from './lib/conversation-export';
 import type { WebChatAdapter } from './lib/web-chat-adapters';
 import type { NavigatorSettings } from './settings';
 
-export function startNavigator(motion?: ReturnType<typeof createNavigationMotion>, adapter?: WebChatAdapter | null, exporter?: typeof attachConversationExport, initialSettings?: Partial<Omit<NavigatorSettings, 'disabledSites'>> & { enabled?: boolean }): void;
+export function startNavigator(motion?: ReturnType<typeof createNavigationMotion>, adapter?: WebChatAdapter | null, exporter?: typeof attachConversationExport, initialSettings?: Partial<Omit<NavigatorSettings, 'disabledSites'>> & { enabled?: boolean }, adapterForRoute?: () => WebChatAdapter | null): void;

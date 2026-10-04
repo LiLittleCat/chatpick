@@ -23,7 +23,7 @@ ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你
 
 | 网站 | 对话 |
 | --- | --- |
-| [ChatGPT](https://chatgpt.com/) | 普通聊天、项目聊天和自定义 GPT 聊天 |
+| [ChatGPT](https://chatgpt.com/) | 普通聊天、项目聊天、自定义 GPT 聊天和 Dots |
 | [Claude](https://claude.ai/) | 普通聊天和项目内的聊天 |
 | [DeepSeek](https://chat.deepseek.com/) | 已保存的聊天 |
 | [Gemini](https://gemini.google.com/) | 已保存的聊天 |

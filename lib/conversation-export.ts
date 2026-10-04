@@ -6,6 +6,7 @@ export type Transcript = {
 export type ExportContext = {
   provider: string; conversationId: () => string | null; language: () => string;
   readHistory: (id: string, signal: AbortSignal) => Promise<unknown>;
+  historyAvailable?: boolean;
   nodes: () => { node: Element; role: 'user' | 'assistant'; id: string; roots: Element[] }[];
   buttonMotion?: (button: HTMLButtonElement) => void;
 };
@@ -205,7 +206,7 @@ export function attachConversationExport(box: HTMLElement, context: ExportContex
     const timer = setTimeout(() => controller.abort(), 30000);
     try {
       let result: ReturnType<typeof historyTranscript> | null = null;
-      if (['ChatGPT', 'Claude', 'DeepSeek'].includes(context.provider)) {
+      if (context.historyAvailable !== false && ['ChatGPT', 'Claude', 'DeepSeek'].includes(context.provider)) {
         try { result = historyTranscript(context.provider, await context.readHistory(id, controller.signal)); } catch { if (controller.signal.aborted) throw new Error('cancelled'); }
       }
       if (controller.signal.aborted || id !== context.conversationId() || !alive) return;
@@ -234,7 +235,7 @@ export function attachConversationExport(box: HTMLElement, context: ExportContex
   button.onclick = () => {
     if (!panel.hidden) return close();
     updateLabels(); status.textContent = text('Choose a format to download.', '选择格式即可下载。');
-    notice.hidden = ['ChatGPT', 'Claude', 'DeepSeek'].includes(context.provider); notice.textContent = notice.hidden ? '' : partialNotice();
+    notice.hidden = context.historyAvailable !== false && ['ChatGPT', 'Claude', 'DeepSeek'].includes(context.provider); notice.textContent = notice.hidden ? '' : partialNotice();
     options.querySelectorAll('button').forEach(b => b.disabled = false);
     panel.hidden = false; positionPanel(); button.setAttribute('aria-expanded', 'true'); (options.firstElementChild as HTMLElement)?.focus();
   };

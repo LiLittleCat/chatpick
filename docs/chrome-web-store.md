@@ -1,6 +1,6 @@
 # Chrome 网上应用店发布指南
 
-核对日期：2026-10-01。本文针对当前 ChatPick 实现；发布前按实际上传版本核对权限、数据行为和开发者控制台要求。
+核对日期：2026-10-04。本文针对当前 ChatPick 实现；发布前按实际上传版本核对权限、数据行为和开发者控制台要求。
 
 ## 当前已具备
 
@@ -19,9 +19,9 @@
 | 开发者账号 | 注册 Chrome Web Store 开发者账号，支付一次性注册费，启用 Google 账号两步验证，完成发布者名称和联系邮箱验证。费用以注册页面为准。 |
 | 发布者身份 | 按实际情况声明 Trader / Non-Trader；若属于 Trader，完成所需身份和联系信息验证。 |
 | 公开联系信息 | 邮箱为 `hi@yl.do`；需在开发者控制台完成邮箱验证。支持网址可使用独立支持页或公开仓库 Issues。代码已托管到私有 GitHub 仓库，公开支持网址仍待准备。 |
-| 隐私政策 URL | 设置面板已有随插件打包的政策入口，政策已包含联系邮箱；仍需托管为无需登录即可访问的页面并填入控制台。本地 Markdown 路径和扩展内部地址不能作为商店提交网址。 |
+| 隐私政策 URL | 设置面板已有随插件打包的政策入口，政策已包含联系邮箱；`pnpm build:policy` 已可生成同源文档的中英文静态网页至 `.output/public-policy/`；仍需托管为无需登录即可访问的页面并填入控制台。本地 Markdown 路径和扩展内部地址不能作为商店提交网址。 |
 | 商店图标 | 使用 `public/icon/128.png`；上传前检查透明背景和缩小后的可读性。 |
-| 商店截图 | 中英文各 5 张 1280 × 800 已准备，分别上传到对应语言的商店页面；见[图片预览与使用说明](store-assets/README.md)。尚未上传。 |
+| 商店截图 | 中英文演示对话各 2 张 1280 × 800 实站截图已准备，用于核心商店截图；原各 5 张功能卡保留作宣传材料；见[图片预览与使用说明](store-assets/README.md)。尚未上传。 |
 | 小宣传图 | 必需的 [440 × 280 PNG](store-assets/promo-small.png) 已准备，尚未上传。 |
 | 大宣传图 | 可选的 [1400 × 560 PNG](store-assets/promo-marquee.png) 已准备，尚未上传。 |
 | 商店字段 | 名称、简短描述、详细说明、分类、默认语言；可使用下方文案。 |
@@ -31,7 +31,7 @@
 
 账号要求见 Google 的[注册说明](https://developer.chrome.com/docs/webstore/register)、[账号设置](https://developer.chrome.com/docs/webstore/set-up-account)、[两步验证要求](https://developer.chrome.com/docs/webstore/program-policies/two-step-verification)和[发布者身份说明](https://developer.chrome.com/docs/webstore/program-policies/trader-verification-faq)。图片规格见[官方图片指南](https://developer.chrome.com/docs/webstore/images)；商店字段见[商店页面说明](https://developer.chrome.com/docs/webstore/cws-dashboard-listing)。
 
-已准备的截图使用新编合成对话，展示问题目录、回答章节、网站配色、导出和设置。插件界面取自生产构建；网站背景为简化的示例页面，不使用真实登录账号或私人聊天。后续更新截图仍需遵守这一要求。图片准备日期为 2026-10-03，生成方式见[图片说明](store-assets/README.md)。
+核心商店截图来自真实 ChatGPT 网页中新建的公开演示对话，展示问题目录、回答章节和导出；截图排除了账号侧栏和浏览器地址栏，没有增加装饰边框或修改实际控件。中文演示对话截图保留实际英文网页和按钮标签；原中文功能卡提供完整中文界面展示。原功能卡使用生产构建和简化示例页面，继续用于 README 与宣传。后续更新仍只使用新编演示内容，不展示私人聊天。图片准备日期为 2026-10-04，生成方式见[图片说明](store-assets/README.md)。
 
 ## 可用的商店文案
 
@@ -51,7 +51,7 @@ Navigate AI conversations by question and answer section.
 在 AI 长对话中，按问题和回答章节快速跳转。
 ```
 
-默认语言建议 English，分类建议 Productivity。界面中英文切换已实现；商店多语言发布需另行配置本地化材料，界面设置不会自动生成商店译文。
+默认语言建议 English，分类建议 Workflow & Planning（工作流程和规划）。界面中英文切换已实现；商店多语言发布需另行配置本地化材料，界面设置不会自动生成商店译文。
 
 ### 英文详细说明
 
@@ -69,9 +69,9 @@ Features
 • Choose automatic, light, or dark appearance. Follow the chat website's language or select English or Chinese.
 • Enjoy subtle interface animations that respect reduced-motion preferences. Content jumps remain instant.
 
-ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
+ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats, Dots, and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
 
-The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on ChatGPT, Claude, and DeepSeek. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
+The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on regular ChatGPT conversations, Claude, and DeepSeek. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
 
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
@@ -99,14 +99,14 @@ Save only the user's per-website enablement, appearance, language, color, and ex
 虽然 manifest 没有单独声明 `host_permissions`，content script 的匹配范围仍带来网站访问权限，需要解释：
 
 ```text
-Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, chat.qwen.ai, www.qianwen.com, and qianwen.com to provide conversation navigation and user-initiated local exports. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on ChatGPT, Claude, and DeepSeek, and read page theme colors. Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, shared-link pages, or websites the user has disabled. Disabled websites keep only lightweight settings and route detection.
+Content scripts run only on chatgpt.com, chat.openai.com, claude.ai, chat.deepseek.com, gemini.google.com, grok.com, www.perplexity.ai, chat.qwen.ai, www.qianwen.com, and qianwen.com to provide conversation navigation and user-initiated local exports. They read the current saved chat's messages and headings, use the provider's existing same-origin session for read-only conversation requests on regular ChatGPT conversations, Claude, and DeepSeek, and read page theme colors. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. Matching other paths on these hosts allows lightweight detection of single-page-app transitions into and out of chats. Conversation history is not read on home, project overview, new-chat entry, settings, shared-link pages, or websites the user has disabled. Disabled websites keep only lightweight settings and route detection.
 ```
 
 ### Remote code
 
 当前版本选择 **No, I am not using remote code**。扩展逻辑及库随包提供，站内会话接口返回数据。新增远程脚本、动态执行远程响应等行为前，需要重新检查实现和申报。
 
-PDF 库与中文字体随包提供，字体资源仅开放给支持的网站；无需新增 downloads 权限。主动导出会重新读取当前会话，临时正文通过页面与隔离脚本桥接，在本机生成下载文件，不存入扩展存储，不发送给开发者。文件含标题、正文、会话 URL 与导出时间，不含凭据；下载后由用户保留或删除。
+PDF 库与中文字体随包提供，仅选择 PDF 导出时加载；固定的本地 PDF 模块和字体资源仅开放给支持的网站；无需新增 downloads 权限。主动导出会重新读取当前会话，临时正文通过页面与隔离脚本桥接，在本机生成下载文件，不存入扩展存储，不发送给开发者。文件含标题、正文、会话 URL 与导出时间，不含凭据；下载后由用户保留或删除。
 
 ### Data usage 与 Privacy policy
 
@@ -120,7 +120,7 @@ PDF 库与中文字体随包提供，字体资源仅开放给支持的网站；�
 
 ```text
 1. Install ChatPick and sign in to ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, or Qianwen using a test account. ChatPick has no separate account or login.
-2. Open a saved conversation with several user questions and an answer containing headings. Supported paths are /c/:id or /g/g-…/c/:id on ChatGPT, /chat/:id on Claude, /a/chat/s/:id on DeepSeek, /app/:id or /u/:account-number/app/:id on Gemini, /c/:id on Grok and Qwen, /search/:id on Perplexity, and /chat/:32-hex-id on Qianwen.
+2. Open a saved conversation with several user questions and an answer containing headings. Supported paths are /c/:id or /g/g-…/c/:id or /dots/:uuid on ChatGPT, /chat/:id on Claude, /a/chat/s/:id on DeepSeek, /app/:id or /u/:account-number/app/:id on Gemini, /c/:id on Grok and Qwen, /search/:id on Perplexity, and /chat/:32-hex-id on Qianwen.
 3. Use the right-side question navigator to jump between questions. Hover a question with a chevron and select one of its answer headings.
 4. Test the start, previous question, next question, and bottom buttons on each supported website.
 5. Select Export above the navigation controls, choose Markdown or PDF, and check the downloaded file. Choosing a format starts the download directly. When history is unavailable or a reply is still generating, the menu and file show a partial-content notice. Files are generated locally; no developer service receives them.
@@ -131,6 +131,16 @@ Expected behavior: repeated questions stay distinct; answers without headings ha
 ```
 
 审核若要求登录凭据，应使用专用测试账号并通过控制台指定渠道提供。公开文档、源码、截图和 ZIP 中均不放真实账号或凭据。
+
+## 提交前的手动验证
+
+以下项目仍待实际设备验证，不能用模拟页面测试结果代替：
+
+- [ ] Windows 与 macOS 的 Chrome 稳定版：安装、导航、设置、Markdown/PDF 导出。
+- [ ] 窄屏和浏览器缩放：目录、章节、导出菜单和设置不会遮挡或超出视口。
+- [ ] 网络慢、会话过期和历史接口失败：回退可用，部分导出提示准确，无无限等待。
+- [ ] 键盘与屏幕阅读器：Tab、Enter、Space、Escape、当前问题状态及禁用按钮可识别。
+- [ ] 每个支持的网站实站：发送新问题、切换聊天、离开聊天、禁用后恢复原生界面。
 
 ## 构建与提交
 

@@ -27,6 +27,8 @@ for (const [key,role,text,channel] of nodes) { mapping[key] = {parent,message:{i
 mapping.sibling = {parent:'u2',message:{id:'sibling',author:{role:'assistant'},content:{parts:['WRONG_BRANCH']}}};
 const page = await context.newPage();
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const pdfResources = [];
+page.on('request', request => { if (/\/(pdf-export\.js|NotoSansSC-Regular\.ttf)$/.test(request.url())) pdfResources.push(request.url()); });
 let failApi = false, delayApi = false;
 await page.route('https://chatgpt.com/**',async route=>{
   const url=route.request().url();
@@ -68,6 +70,7 @@ try {
   const columns = await page.locator('#cgpt-btns button').evaluateAll(buttons => buttons.map(button => ({ icon: button.querySelector('svg').getBoundingClientRect().left, text: button.querySelector('.cn-control-label').getBoundingClientRect().left })));
   assert.ok(columns.every(row => Math.abs(row.icon - columns[0].icon) < .5 && Math.abs(row.text - columns[0].text) < .5), 'All four buttons align icon and text columns');
   if(process.env.CHATPICK_EXPORT_SCREENSHOT) await page.screenshot({path:process.env.CHATPICK_EXPORT_SCREENSHOT});
+  assert.equal(pdfResources.length, 0, 'PDF code and font are not loaded during navigation');
   let file = await download('markdown');
   assert.match(file.suggestedFilename(),/中文会话导出.*\.md$/);
   const markdown=fs.readFileSync(await file.path(),'utf8');
@@ -75,7 +78,10 @@ try {
   assert.ok(markdown.includes(answer),'Rich Markdown retained exactly');
   assert.ok(!/PRIVATE_REASONING|PRIVATE_TOOL|WRONG_BRANCH|synthetic-fixture/.test(markdown));
   await page.getByText('Downloaded.',{exact:true}).waitFor();
+  assert.equal(pdfResources.length, 0, 'Markdown export does not load PDF resources');
   file = await download('pdf');
+  assert.ok(pdfResources.some(url => url.endsWith('/pdf-export.js')), 'PDF renderer is loaded on demand');
+  assert.ok(pdfResources.every(url => url.startsWith('chrome-extension://')), 'PDF code and font stay bundled');
   const bytes=fs.readFileSync(await file.path()); assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
   assert.ok(bytes.length>10000 && bytes.length<2000000,'Font subset rather than full 16MB font');
   // Text extraction alone can pass while a malformed subset renders empty glyphs.

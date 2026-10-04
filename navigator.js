@@ -11,7 +11,10 @@
 // @run-at       document-idle
 // ==/UserScript==
 
-export function startNavigator(motion = {}, adapter = null, exporter = null, initialSettings = {}) {
+export function startNavigator(motion = {}, adapter = null, exporter = null, initialSettings = {}, adapterForRoute = null) {
+
+  const baseAdapter = adapter;
+  const routeAdapter = adapterForRoute || (() => baseAdapter);
 
   const isClaude = location.hostname === 'claude.ai';
   const isDeepseek = location.hostname === 'chat.deepseek.com';
@@ -759,7 +762,8 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
 
   function getConvId() {
     if (!settings.enabled) return null;
-    if (adapter) return adapter.conversationId();
+    const activeAdapter = routeAdapter();
+    if (activeAdapter) return activeAdapter.conversationId();
     // 项目及自定义 GPT 的详情页共用 /g/:slug/c/:id；不匹配它们的入口页。
     const pattern = isDeepseek ? /^\/a\/chat\/s\/([0-9a-zA-Z-]{8,})\/?$/
       : isClaude ? /^\/chat\/([0-9a-zA-Z-]{8,})\/?$/
@@ -779,6 +783,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   async function readHistory(id, signal) {
+    if (adapter) throw new Error('Rendered-message navigation has no history reader');
     let res;
     if (isDeepseek) {
       // 官网使用的同源会话凭据，仅用于当前聊天的只读请求。
@@ -888,6 +893,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     tocSig = '';
     activeIdx = -1;
     lastTargetIdx = -1;
+    selectedQuestion = null;
     seekToken++;
     document.querySelectorAll('#cgpt-btns button').forEach(button => {
       button.removeAttribute('aria-busy');
@@ -904,6 +910,43 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   let lastTargetIdx = -1;
   let lastClickTime = 0;
   let seekToken = 0;
+  let selectedQuestion = null;
+
+  function selectedQuestionIndex() {
+    if (!selectedQuestion) return -1;
+    const index = entries.findIndex(entry => entry === selectedQuestion.entry || selectedQuestion.entry.messageId && entry.messageId === selectedQuestion.entry.messageId);
+    const moved = selectedQuestion.scroll.some(([node, top]) => !node.isConnected || Math.abs(node.scrollTop - top) > 2);
+    if (index < 0 || moved) {
+      selectedQuestion = null;
+      lastTargetIdx = -1;
+      if (moved) seekToken++;
+      return -1;
+    }
+    return index;
+  }
+
+  function rememberQuestionSelection(i, node) {
+    const scrollers = getScrollableAncestors(node);
+    const origin = scrollers[0] === document.scrollingElement ? 0 : scrollers[0].getBoundingClientRect().top;
+    // A short tail may clamp several questions to the same scroll position.
+    // Preserve explicit selection until the reader moves the conversation.
+    selectedQuestion = Math.abs(node.getBoundingClientRect().top - origin - TOP_OFFSET) > 8
+      ? { entry: entries[i], scroll: scrollers.map(scroller => [scroller, scroller.scrollTop]) }
+      : null;
+    setActive(i);
+    refreshControls();
+  }
+
+  function releaseQuestionSelection(event) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('#cgpt-nav-box, input, textarea, [contenteditable="true"]')) return;
+    if (event.type === 'keydown' && !['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) return;
+    if (!selectedQuestion) return;
+    selectedQuestion = null;
+    lastTargetIdx = -1;
+    seekToken++;
+    onScroll();
+  }
 
   // 接管原生入口时继续复用它的定位能力；由 DeepSeek 自己挂载未渲染的消息。
   async function activateDeepseekNative(i, token) {
@@ -957,6 +1000,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   // 跳到全局第 i 个提问；如果它当前没渲染，就朝目标方向滚动，直到它被加载出来
   async function jumpTo(i, settle = true) {
     const token = ++seekToken;
+    selectedQuestion = null;
     lastTargetIdx = i;
     lastClickTime = Date.now();
     if (isVirtualSite && entries[i]?.turnIndex !== undefined) {
@@ -979,6 +1023,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         }
       }
       clearToast();
+      rememberQuestionSelection(i, row);
       return true;
     }
     const targetId = adapter ? entries[i]?.messageId : null;
@@ -1010,10 +1055,12 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
             if (k2 >= 0) {
               const top = w2.msgs[k2].getBoundingClientRect().top;
               if (Math.abs(top - TOP_OFFSET) > 24) scrollElTo(w2.msgs[k2], 'start', 'instant');
+              rememberQuestionSelection(i, w2.msgs[k2]);
             }
           }, 250);
         }
         clearToast();
+        rememberQuestionSelection(i, w.msgs[k]);
         return true;
       }
       const loaded = w.indices.filter((index) => index >= 0);
@@ -1042,6 +1089,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   async function jumpToSection(i, section) {
+    selectedQuestion = null;
     const questionId = adapter ? entries[i]?.messageId : null;
     let token = ++seekToken;
     lastTargetIdx = i;
@@ -1083,6 +1131,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     let result = findTarget();
     if (result.target?.node?.isConnected) {
       scrollElTo(result.target.node, 'start', 'instant');
+      rememberQuestionSelection(i, result.target.node);
       clearToast();
       return;
     }
@@ -1112,6 +1161,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       result = findTarget();
       if (result.target?.node?.isConnected) {
         scrollElTo(result.target.node, 'start', 'instant');
+        rememberQuestionSelection(i, result.target.node);
         clearToast();
         return;
       }
@@ -1120,6 +1170,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   async function goToStart() {
+    selectedQuestion = null;
     // History-backed virtual lists may need to mount their earliest question first.
     if (!adapter && entries.length && !await jumpTo(0)) return;
     lastTargetIdx = -1;
@@ -1140,11 +1191,16 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         return position < 2;
       })) break;
     }
+    const w = getWindow();
+    const firstIndex = localIndex(w, 0);
+    if (firstIndex >= 0) rememberQuestionSelection(0, w.msgs[firstIndex]);
   }
 
   // 传入很大的 top 值，浏览器会自动限制到最远处；反复几次，等虚拟化列表把底部内容渲染出来
   async function goToBottom() {
+    selectedQuestion = null;
     lastTargetIdx = -1;
+    onScroll();
     const token = ++seekToken;
     const users = getUserMessages();
     const turns = getAllTurns();
@@ -1160,6 +1216,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       if (sig === prevSig) break;
       prevSig = sig;
     }
+    const w = getWindow();
+    const lastIndex = localIndex(w, entries.length - 1);
+    if (lastIndex >= 0) rememberQuestionSelection(entries.length - 1, w.msgs[lastIndex]);
   }
 
   // dir = -1 上一个提问；dir = +1 下一个提问
@@ -1194,7 +1253,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     }
 
     let target;
-    if (lastTargetIdx >= 0 && now - lastClickTime < CLICK_WINDOW) {
+    const selected = selectedQuestionIndex();
+    if (selected >= 0) target = selected + dir;
+    else if (lastTargetIdx >= 0 && now - lastClickTime < CLICK_WINDOW) {
       // 连续点击：基于上一次的目标继续走
       target = lastTargetIdx + dir;
     } else if (isVirtualSite) {
@@ -1236,7 +1297,8 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     const lastKnown = w.indices.includes(entries.length - 1);
     const atStart = firstKnown && max > 2 && position <= 2;
     const atEnd = lastKnown && max > 2 && position >= max - 2;
-    [atStart, atStart, atEnd, atEnd].forEach((disabled, i) => {
+    const selected = selectedQuestionIndex();
+    [atStart, atStart && selected <= 0, atEnd && (selected < 0 || selected === entries.length - 1), atEnd].forEach((disabled, i) => {
       const button = buttons[i];
       const unavailable = !reference || !entries.length;
       button.setAttribute('aria-disabled', String(unavailable || disabled));
@@ -1563,7 +1625,11 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   function setActive(idx) {
     if (idx === activeIdx) return;
     activeIdx = idx;
-    tocItems.forEach((it, i) => it.classList.toggle('active', i === idx));
+    tocItems.forEach((it, i) => {
+      it.classList.toggle('active', i === idx);
+      if (i === idx) it.setAttribute('aria-current', 'true');
+      else it.removeAttribute('aria-current');
+    });
     const it = tocItems[idx];
     if (it && tocList && !tocEl.matches(':hover, :focus-within') && !sectionEntry) {
       const top = it.offsetTop;
@@ -1582,6 +1648,8 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     const msgs = w.msgs;
     const len = msgs.length;
     const N = tocItems.length;
+    const selected = selectedQuestionIndex();
+    if (selected >= 0) return { idx: selected, frac: 0 };
     if (isVirtualSite) {
       const turns = getAllTurns().filter((turn) => !previousChatNodes.has(turn));
       if (!turns.length) return { idx: -1, frac: 0 };
@@ -1598,7 +1666,13 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       const progress = clamp01((limit - rect.top) / Math.max(1, rect.height));
       return { idx, frac: end > start ? clamp01((ordinal - start + progress) / (end - start)) : 0 };
     }
-    const limit = TOP_OFFSET + 40;
+    const scroller = getScrollableAncestors(msgs[0])[0];
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    const position = getComputedStyle(scroller).flexDirection === 'column-reverse' ? max + scroller.scrollTop : scroller.scrollTop;
+    if (max > 2 && position >= max - 2 && w.indices.includes(N - 1)) return { idx: N - 1, frac: 1 };
+    const origin = scroller === document.scrollingElement ? 0 : scroller.getBoundingClientRect().top;
+    const viewportHeight = scroller.clientHeight || window.innerHeight;
+    const limit = origin + TOP_OFFSET + 40;
     const top = (i) => msgs[i].getBoundingClientRect().top;
 
     let idx = 0;
@@ -1608,8 +1682,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     }
     // 最后一个提问一般滚不到最顶部：只要它已经在视野上半部分，就视为当前位置
     const last = len - 1;
-    const isGlobalLast = w.indices[idx] >= N - 1;
-    if (w.indices[last] >= N - 1 && top(last) < window.innerHeight * 0.5) idx = last;
+    if (w.indices[last] >= N - 1 && top(last) < origin + viewportHeight * 0.5) idx = last;
 
     const t0 = top(idx);
     let frac = 0;
@@ -1622,11 +1695,10 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       const lt = turns[turns.length - 1];
       if (lt) {
         const end = lt.getBoundingClientRect().bottom;
-        const oMax = end - t0 - (window.innerHeight - limit);
+        const oMax = end - t0 - (origin + viewportHeight - limit);
         frac = oMax > 1 ? clamp01((limit - t0) / oMax) : 1;
       }
     }
-    void isGlobalLast;
     return { idx: w.indices[idx], frac };
   }
 
@@ -1868,7 +1940,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   // 高亮跟随站点外观强调色或品牌色；通用链接色不参与回退。
-  const siteColorTokens = adapter ? adapter.colorTokens : isDeepseek ? {
+  const siteColorTokens = adapter?.colorTokens || (isDeepseek ? {
     bg: ['--dsw-alias-bg-layer-1'],
     fg: ['--dsw-alias-label-primary'],
     muted: ['--dsw-alias-label-secondary'],
@@ -1892,7 +1964,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     track: ['--app-color-border-heavy', '--border-medium', '--color-border-heavy'],
     hover: ['--color-background-primary-soft-hover', '--surface-hover', '--color-token-surface-hover'],
     active: ['--app-color-text-accent', '--app-color-icon-accent', '--brand-color', '--brand-green'],
-  };
+  });
 
   function applySiteColors(box, theme) {
     const pageStyle = getComputedStyle(box);
@@ -1913,7 +1985,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       }
       // 官网未暴露品牌变量时仍保留各站点的颜色，不借用统一的蓝色链接。
       if (!color && key === 'active' && settings.colors === 'site') {
-        color = adapter ? adapter.accent(theme === 'dark') : isClaude ? (theme === 'dark' ? '#d97757' : '#c6613f')
+        color = adapter?.accent ? adapter.accent(theme === 'dark') : isClaude ? (theme === 'dark' ? '#d97757' : '#c6613f')
           : isDeepseek ? (theme === 'dark' ? '#679efe' : '#306eff')
             : (theme === 'dark' ? '#19c37d' : '#10a37f');
       }
@@ -2270,7 +2342,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     if (!box) return;
     stopExport = exporter(box, {
       provider: adapter?.name || (isClaude ? 'Claude' : isDeepseek ? 'DeepSeek' : 'ChatGPT'),
-      conversationId: getConvId, language, readHistory,
+      conversationId: getConvId, language, readHistory, historyAvailable: !adapter,
       buttonMotion: motion.button,
       nodes: () => {
         const users = getUserMessages();
@@ -2287,6 +2359,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   function setupObservers() {
     // scroll 事件不冒泡，用捕获阶段监听任意滚动容器
     document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    document.addEventListener('wheel', releaseQuestionSelection, { capture: true, passive: true });
+    document.addEventListener('touchstart', releaseQuestionSelection, { capture: true, passive: true });
+    document.addEventListener('keydown', releaseQuestionSelection, true);
     window.addEventListener('resize', onScroll);
 
     // 消息变化（发送新提问、切换对话、懒加载、流式输出）时刷新目录
@@ -2330,6 +2405,9 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       contentObserver.disconnect();
       themeObserver.disconnect();
       document.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('wheel', releaseQuestionSelection, true);
+      document.removeEventListener('touchstart', releaseQuestionSelection, true);
+      document.removeEventListener('keydown', releaseQuestionSelection, true);
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('resize', resizeToc);
       if (mq?.removeEventListener) mq.removeEventListener('change', onTheme);
@@ -2338,22 +2416,31 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   let stopObservers = null;
+  function deactivate() {
+    if (!stopObservers) return;
+    stopObservers();
+    stopObservers = null;
+    resetConv(null);
+    clearTimeout(refreshTimer);
+    refreshTimer = 0;
+    cancelAnimationFrame(scrollRaf);
+    scrollRaf = 0;
+    document.documentElement.classList.remove('chatpick-deepseek-active');
+    tokenCache = { t: '', exp: 0 };
+    ['cgpt-nav-box', 'cgpt-nav-toast', 'cgpt-nav-style'].forEach((name) => document.getElementById(name)?.remove());
+    tocEl = tocList = tocSkeleton = sectionEl = sectionList = null;
+  }
   function syncRoute() {
     if (!document.body) return;
+    const nextAdapter = routeAdapter();
+    if (adapter !== nextAdapter) {
+      // Stop the previous reader/export before switching between chat layouts.
+      deactivate();
+      adapter = nextAdapter;
+    }
     const id = getConvId();
     if (!id) {
-      if (!stopObservers) return;
-      stopObservers();
-      stopObservers = null;
-      resetConv(null);
-      clearTimeout(refreshTimer);
-      refreshTimer = 0;
-      cancelAnimationFrame(scrollRaf);
-      scrollRaf = 0;
-      document.documentElement.classList.remove('chatpick-deepseek-active');
-      tokenCache = { t: '', exp: 0 };
-      ['cgpt-nav-box', 'cgpt-nav-toast', 'cgpt-nav-style'].forEach((name) => document.getElementById(name)?.remove());
-      tocEl = tocList = tocSkeleton = sectionEl = sectionList = null;
+      deactivate();
       return;
     }
     if (!stopObservers) stopObservers = setupObservers();

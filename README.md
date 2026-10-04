@@ -23,7 +23,7 @@ ChatPick is a Chrome extension that puts a question directory beside your chat. 
 
 | Website | Conversations |
 | --- | --- |
-| [ChatGPT](https://chatgpt.com/) | Regular chats, project chats, and custom GPT chats |
+| [ChatGPT](https://chatgpt.com/) | Regular chats, project chats, custom GPT chats, and Dots |
 | [Claude](https://claude.ai/) | Regular chats and chats within projects |
 | [DeepSeek](https://chat.deepseek.com/) | Saved chats |
 | [Gemini](https://gemini.google.com/) | Saved chats |

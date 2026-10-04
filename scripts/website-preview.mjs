@@ -1,14 +1,15 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 
 const root = path.resolve(import.meta.dirname, '../.output/website');
 const port = Number(process.env.CHATPICK_PREVIEW_PORT || 4173);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('CHATPICK_PREVIEW_PORT must be a valid port');
 await fs.access(path.join(root, 'index.html')).catch(() => { throw new Error('Build the homepage first with pnpm build:website'); });
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
 const server = http.createServer(async (request, response) => {
-  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', 'no-cache');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
   if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); return response.end(); }
@@ -18,8 +19,21 @@ const server = http.createServer(async (request, response) => {
     filename = path.resolve(root, '.' + pathname);
     if (filename !== root && !filename.startsWith(root + path.sep)) { response.writeHead(403); return response.end(); }
     if ((await fs.stat(filename)).isDirectory()) filename = path.join(filename, 'index.html');
-    const body = await fs.readFile(filename);
+    let body = await fs.readFile(filename);
+    if (body.length > 1024 && /\.(html|css|js|svg|txt|xml)$/.test(filename)) {
+      response.setHeader('Vary', 'Accept-Encoding');
+      const accepted = new Map((request.headers['accept-encoding'] || '').split(',').map(value => {
+        const [encoding, quality] = value.trim().split(';q=');
+        return [encoding, quality === undefined ? 1 : Number(quality)];
+      }));
+      const encoding = ['br', 'gzip'].find(value => accepted.get(value) > 0);
+      if (encoding) {
+        body = encoding === 'br' ? brotliCompressSync(body) : gzipSync(body);
+        response.setHeader('Content-Encoding', encoding);
+      }
+    }
     response.setHeader('Content-Type', mime[path.extname(filename)] || 'application/octet-stream');
+    response.setHeader('Content-Length', body.length);
     response.writeHead(200);
     response.end(request.method === 'HEAD' ? undefined : body);
   } catch (error) {

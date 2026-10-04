@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { transformSync } from 'esbuild';
 import { renderHome } from '../website/template.mjs';
 import { stores } from '../website/stores.mjs';
+import { providers } from '../website/content.mjs';
 import './public-policy.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -21,27 +24,35 @@ if (siteUrlInput) {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error('CHATPICK_SITE_URL must be a public HTTPS site URL without credentials, query or fragment');
   siteUrl = parsed.href.replace(/\/?$/, '/');
 }
+fs.rmSync(output, { recursive: true, force: true });
 fs.mkdirSync(path.join(output, 'assets'), { recursive: true });
-// Remove generated assets belonging to the retired standalone screenshot gallery.
-fs.rmSync(path.join(output, 'assets/screenshots'), { recursive: true, force: true });
 fs.copyFileSync(path.join(root, 'public/icon/logo.svg'), path.join(output, 'assets/logo.svg'));
 fs.copyFileSync(path.join(root, 'LICENSE'), path.join(output, 'assets/LICENSE.txt'));
-for (const filename of ['site.css', 'site.js', 'language.js']) fs.copyFileSync(path.join(root, 'website/assets', filename), path.join(output, 'assets', filename));
+const assets = {};
+for (const filename of ['site.css', 'site.js']) {
+  const source = fs.readFileSync(path.join(root, 'website/assets', filename), 'utf8');
+  const code = transformSync(source, { loader: filename.endsWith('.css') ? 'css' : 'js', minify: true, target: 'es2022' }).code;
+  const hash = createHash('sha256').update(code).digest('hex').slice(0, 12);
+  assets[filename] = filename.replace(/\.(css|js)$/, `.${hash}.$1`);
+  fs.writeFileSync(path.join(output, 'assets', assets[filename]), code);
+}
+const bootstrap = transformSync(fs.readFileSync(path.join(root, 'website/assets/language.js'), 'utf8'), { loader: 'js', minify: true, target: 'es2022' }).code.trim();
 fs.mkdirSync(path.join(output, 'assets/browsers'), { recursive: true });
 for (const store of stores) fs.copyFileSync(path.join(root, 'website/assets/browsers', store.logo), path.join(output, 'assets/browsers', store.logo));
 fs.mkdirSync(path.join(output, 'assets/providers'), { recursive: true });
-for (const filename of fs.readdirSync(path.join(root, 'website/assets/providers'))) {
-  if (/\.(svg|png)$/.test(filename)) fs.copyFileSync(path.join(root, 'website/assets/providers', filename), path.join(output, 'assets/providers', filename));
-}
+for (const filename of new Set(providers.flatMap(provider => provider.slice(4))))
+  fs.copyFileSync(path.join(root, 'website/assets/providers', filename), path.join(output, 'assets/providers', filename));
 for (const locale of ['en', 'zh-CN']) {
   const directory = path.join(output, locale === 'en' ? '' : locale);
   fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(path.join(directory, 'index.html'), renderHome(locale, { storeUrls, siteUrl }));
+  fs.writeFileSync(path.join(directory, 'index.html'), renderHome(locale, { storeUrls, siteUrl, assets, bootstrap }));
   fs.mkdirSync(path.join(output, 'assets', locale), { recursive: true });
-  for (const filename of ['01-questions.png', '02-answer-sections.png', '04-export.png', '03-site-colors.png']) {
+  for (const filename of ['01-questions.png']) {
     fs.copyFileSync(path.join(root, 'docs/store-assets', locale, filename), path.join(output, 'assets', locale, filename));
   }
 }
+fs.cpSync(path.join(root, 'website/assets/previews'), path.join(output, 'assets/previews'), { recursive: true });
+fs.writeFileSync(path.join(output, '_headers'), `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  X-Frame-Options: DENY\n/assets/*\n  Cache-Control: public, max-age=86400\n`);
 fs.cpSync(path.join(root, '.output/public-policy'), path.join(output, 'privacy'), { recursive: true });
 // Add a route home without duplicating either authoritative policy document.
 for (const zh of [false, true]) {

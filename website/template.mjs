@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import { copy, providers } from './content.mjs';
 import { stores } from './stores.mjs';
+import { previewDimensions, previewWidths, previewSizes, previewFilename } from './images.mjs';
 
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const chevron = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -7,9 +9,12 @@ const sun = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentCo
 const moon = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg>';
 const star = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
 
-export function renderHome(locale, { storeUrls = {}, siteUrl } = {}) {
+export function renderHome(locale, { storeUrls = {}, siteUrl, assets = {}, bootstrap } = {}) {
   const t = copy[locale];
   const zh = locale === 'zh-CN';
+  const scriptPolicy = bootstrap ? ` 'sha256-${createHash('sha256').update(bootstrap).digest('base64')}'` : '';
+  const stylesheet = assets['site.css'] || 'site.css';
+  const script = assets['site.js'] || 'site.js';
   const base = zh ? '../' : './';
   const policy = `${base}privacy/${zh ? 'zh-CN/' : ''}`;
   const languageLink = zh ? '../?lang=en' : './zh-CN/?lang=zh-CN';
@@ -28,9 +33,9 @@ export function renderHome(locale, { storeUrls = {}, siteUrl } = {}) {
     return `<a href="${url}" class="provider"${duplicate ? ' tabindex="-1"' : ''} title="${escape(zh ? cn : en)}">${image}</a>`;
   }).join('');
 
-  const features = t.features.map(([title, text, filename, alt], i) => `<li class="feature-step" id="feature-${i + 1}" data-feature="${i}">
+  const features = t.features.map(([title, text, filename, alt], i) => `<li class="feature-step${i === 0 ? ' is-active' : ''}" id="feature-${i + 1}" data-feature="${i}">
     <div class="feature-copy"><h3>${title}</h3><p>${text}</p></div>
-    <figure class="feature-shot"><img src="${base}assets/${imageLanguage}/${filename}" width="1280" height="800" alt="${escape(alt)}" loading="lazy"></figure>
+    <figure class="feature-shot"><img src="${base}assets/previews/${imageLanguage}/${filename}" srcset="${previewWidths.map(width => `${base}assets/previews/${imageLanguage}/${previewFilename(filename, width)} ${width}w`).join(', ')}" sizes="${previewSizes}" width="${previewDimensions.width}" height="${previewDimensions.height}" alt="${escape(alt)}" loading="lazy"></figure>
   </li>`).join('');
 
   return `<!doctype html>
@@ -38,17 +43,17 @@ export function renderHome(locale, { storeUrls = {}, siteUrl } = {}) {
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="${escape(t.description)}"><meta name="theme-color" content="#fafbfa">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
-  <script src="${base}assets/language.js"></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'${scriptPolicy}; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  ${bootstrap ? `<script data-base="${base}">${bootstrap}</script>` : `<script data-base="${base}" src="${base}assets/language.js"></script>`}
   <title>${escape(t.title)}</title><meta property="og:type" content="website"><meta property="og:title" content="${escape(t.title)}"><meta property="og:description" content="${escape(t.description)}">
-  ${metadata}<link rel="icon" href="${base}assets/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="${base}assets/site.css"><script src="${base}assets/site.js" defer></script>
+  ${metadata}<link rel="icon" href="${base}assets/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="${base}assets/${stylesheet}"><script src="${base}assets/${script}" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">${t.skip}</a>
   <header class="site-header wrap">
     ${brand}
-    <nav aria-label="${zh ? '主导航' : 'Main navigation'}"><a href="#features">${t.nav[0]}</a><a href="#chats">${t.nav[1]}</a><a href="${policy}">${t.nav[2]}</a></nav>
-    <div class="header-controls"><a class="language" href="${languageLink}" lang="${zh ? 'en' : 'zh-CN'}" aria-label="${zh ? 'Switch to English' : '切换到中文'}">${t.language}</a><button class="theme-toggle" type="button" aria-label="${t.themeDark}" aria-pressed="false" data-light-label="${t.themeLight}" data-dark-label="${t.themeDark}"><span data-theme-icon="light" hidden>${sun}</span><span data-theme-icon="dark">${moon}</span></button><a class="github-star" href="https://github.com/LiLittleCat/chatpick" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">${star}<span class="github-label">Star on GitHub</span><span class="github-compact" aria-hidden="true">Star</span></a></div>
+    <nav aria-label="${zh ? '主导航' : 'Main navigation'}"><a href="#features">${t.nav[0]}</a><a href="#chats">${t.nav[1]}</a><a href="#privacy">${t.nav[2]}</a></nav>
+    <div class="header-controls"><a class="language" href="${languageLink}" lang="${locale}" aria-label="${zh ? '当前语言：中文，切换到英文' : 'Current language: English. Switch to Chinese'}" title="${zh ? '切换到英文' : 'Switch to Chinese'}"><span aria-hidden="true">${zh ? '中' : 'EN'}</span></a><button class="theme-toggle" type="button" aria-label="${t.themeDark}" aria-pressed="false" data-light-label="${t.themeLight}" data-dark-label="${t.themeDark}"><span data-theme-icon="light">${sun}</span><span data-theme-icon="dark">${moon}</span></button><a class="github-star" href="https://github.com/LiLittleCat/chatpick" target="_blank" rel="noopener noreferrer" aria-label="Star on GitHub" title="Star on GitHub">${star}<span class="github-label">Star on GitHub</span><span class="github-compact" aria-hidden="true">Star</span></a></div>
   </header>
   <main id="main">
     <section class="hero wrap" aria-labelledby="hero-title">
@@ -58,15 +63,18 @@ export function renderHome(locale, { storeUrls = {}, siteUrl } = {}) {
       </div>
     </section>
     <section class="features wrap" id="features" aria-labelledby="features-title">
-      <h2 id="features-title">${t.featuresTitle}</h2><div class="feature-story"><div class="feature-progress"><input class="feature-scrollbar" type="range" min="0" max="100" step="1" value="0" aria-label="${zh ? '功能介绍滚动条' : 'Feature walkthrough scrollbar'}" aria-controls="feature-steps"></div><ul class="feature-steps" id="feature-steps">${features}</ul><div class="feature-stage" aria-label="${zh ? '当前功能展示' : 'Current feature preview'}"></div></div>
+      <h2 id="features-title">${t.featuresTitle}</h2><div class="feature-story"><div class="feature-progress"><div class="feature-markers" role="group" aria-label="${zh ? '选择功能' : 'Choose a feature'}">${t.features.map(([title], i) => `<button class="feature-marker" type="button" data-slide="${i}" aria-label="${escape(title)}" aria-controls="feature-${i + 1}" title="${escape(title)}"></button>`).join('')}</div><button class="feature-playback" type="button" aria-label="${zh ? '暂停自动播放' : 'Pause autoplay'}" data-pause-label="${zh ? '暂停自动播放' : 'Pause autoplay'}" data-play-label="${zh ? '开始自动播放' : 'Start autoplay'}"><svg class="icon" data-playback-icon="pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg><svg class="icon" data-playback-icon="play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true" hidden><path d="m8 5 11 7-11 7Z"/></svg></button></div><div class="feature-viewport" tabindex="0" role="region" aria-roledescription="${zh ? '轮播' : 'carousel'}" aria-labelledby="features-title"><ul class="feature-steps" id="feature-steps">${features}</ul></div></div>
     </section>
     <section class="sites" id="chats" aria-labelledby="sites-title">
       <div class="sites-heading"><h2 id="sites-title">${t.sitesTitle}</h2></div>
       <div class="provider-marquee"><div class="provider-viewport"><div class="provider-track"><div class="provider-group">${logos(false)}</div><div class="provider-group" aria-hidden="true">${logos(true)}</div></div></div></div>
     </section>
-    <section class="privacy wrap" id="privacy" aria-labelledby="privacy-title">
-      <div class="privacy-copy"><h2 id="privacy-title">${t.privacyTitle}</h2><p>${t.privacyIntro}</p><a href="${policy}" class="text-link">${t.privacyLink}</a></div>
-      <ul class="privacy-points">${t.privacyPoints.map(point => `<li>${point}</li>`).join('')}</ul>
+    <section class="privacy-section wrap" id="privacy" aria-labelledby="privacy-heading">
+      <h2 id="privacy-heading">${t.privacyHeading}</h2>
+      <div class="privacy">
+        <div class="privacy-copy"><h3>${t.privacyTitle}</h3><p>${t.privacyIntro}</p><a href="${policy}" class="text-link">${t.privacyLink}</a></div>
+        <ul class="privacy-points">${t.privacyPoints.map(point => `<li>${point}</li>`).join('')}</ul>
+      </div>
     </section>
     <section class="faq wrap" aria-labelledby="faq-title">
       <h2 id="faq-title">${t.faqTitle}</h2>

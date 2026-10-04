@@ -12,6 +12,8 @@ pnpm zip        # Build and package into .output/
 pnpm build:policy # Standalone public policy pages in .output/public-policy/
 pnpm build:website # Bilingual product website in .output/website/
 pnpm preview:website # Local website preview at http://127.0.0.1:4173/
+pnpm test:website # Website theme and carousel checks
+pnpm audit:website # Lighthouse against a running website preview
 ```
 
 Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands are available in `package.json`; browser regression coverage currently targets Chromium.
@@ -26,7 +28,7 @@ Open the repository's **Actions → Build Chrome extension**, select a successfu
 
 The homepage source lives in [website/](../website/README.md), separately from extension entrypoints. Run `pnpm build:website` and `pnpm preview:website` to preview the homepage. The default entry follows the browser language (Chinese or English fallback); use `/?lang=en` and `/zh-CN/?lang=zh-CN` for explicit language previews. Privacy policies are generated from the existing documents and linked under `/privacy/` and `/privacy/zh-CN/`. The website uses four feature sections with public promotional assets, with no analytics, remote scripts or visitor storage. It is currently local only; Cloudflare Pages at `chatpick.yl.do` is the chosen deployment target, while publication and Chrome, Firefox and Edge store links remain pending. Store URLs are configured independently in [website/stores.mjs](../website/stores.mjs); empty URLs render button placeholders with browser logos and no navigation.
 
-The website build generates only `.output/website/`; `pnpm build` and `pnpm zip` build the extension separately. Public URLs and installation calls to action are configurable at website build time after their destinations have been verified. See [website instructions](../website/README.md) for preview and deployment details.
+The website build generates only `.output/website/`; `pnpm build` and `pnpm zip` build the extension separately. Public URLs and installation calls to action are configurable at website build time after their destinations have been verified. CSS and JavaScript are minified. Website feature screenshots are captured independently from the store cards at native 2× resolution, then encoded as responsive lossless WebP variants. Run `pnpm test:website` after changing theme initialization or carousel behavior. `pnpm audit:website` requires a separate Lighthouse installation and a running preview; it writes four mobile/desktop and English/Chinese reports to `.output/lighthouse/`. See [website instructions](../website/README.md) for image regeneration, audit setup and deployment details.
 
 ## Source responsibilities
 

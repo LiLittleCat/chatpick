@@ -15,3 +15,5 @@ These original assets were obtained from the providers' official brand downloads
 | Qianwen (dark) | https://img.alicdn.com/imgextra/i4/O1CN01PIhuaD29Z9kq4Y1xq_!!6000000008081-2-tps-80-80.png |
 
 Logos are bundled so displaying the homepage makes no requests to these hosts. Keep the originals unchanged when refreshing them.
+
+`gemini.webp` is an 80×80 derivative of the original PNG, sized for the homepage's logo strip. Regenerate it with `scripts/website-assets.mjs`; the original remains unchanged.

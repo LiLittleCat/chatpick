@@ -10,15 +10,23 @@ pnpm compile    # TypeScript checks
 pnpm build      # Chrome Manifest V3 production build
 pnpm zip        # Build and package into .output/
 pnpm build:policy # Standalone public policy pages in .output/public-policy/
+pnpm build:website # Bilingual product website in .output/website/
+pnpm preview:website # Local website preview at http://127.0.0.1:4173/
 ```
 
 Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands are available in `package.json`; browser regression coverage currently targets Chromium.
 
 ## GitHub builds
 
-The [Build Chrome extension workflow](../.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual runs. It uses Node.js 24 and pnpm 12.6.0, installs the frozen lockfile, checks TypeScript, and runs `pnpm zip`, which performs the production build before packaging. It verifies the ZIP's root manifest, version, bundled PDF resources, and license notices before uploading it.
+The [Build Chrome extension workflow](../.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual runs. It uses Node.js 24 and pnpm 12.6.0, installs the frozen lockfile, checks TypeScript, and runs `pnpm zip`, which performs the production build before packaging. It verifies the ZIP's root manifest, version, English/Chinese metadata, bundled PDF resources, and license notices before uploading it.
 
 Open the repository's **Actions → Build Chrome extension**, select a successful run, and download `chatpick-<version>-chrome.zip` from **Artifacts**. The artifact is the extension ZIP itself, ready to upload to the Chrome Web Store or extract for local installation. Artifacts are retained for 30 days. The workflow builds the package; run the relevant browser regression suites separately before release.
+
+## Product website
+
+The homepage source lives in [website/](../website/README.md), separately from extension entrypoints. Run `pnpm build:website` and `pnpm preview:website` to preview the homepage. The default entry follows the browser language (Chinese or English fallback); use `/?lang=en` and `/zh-CN/?lang=zh-CN` for explicit language previews. Privacy policies are generated from the existing documents and linked under `/privacy/` and `/privacy/zh-CN/`. The website uses four feature sections with public promotional assets, with no analytics, remote scripts or visitor storage. It is currently local only; Cloudflare Pages at `chatpick.yl.do` is the chosen deployment target, while publication and Chrome, Firefox and Edge store links remain pending. Store URLs are configured independently in [website/stores.mjs](../website/stores.mjs); empty URLs render button placeholders with browser logos and no navigation.
+
+The website build generates only `.output/website/`; `pnpm build` and `pnpm zip` build the extension separately. Public URLs and installation calls to action are configurable at website build time after their destinations have been verified. See [website instructions](../website/README.md) for preview and deployment details.
 
 ## Source responsibilities
 
@@ -40,6 +48,12 @@ Open the repository's **Actions → Build Chrome extension**, select a successfu
 The privacy page imports `docs/privacy-policy.md` and `docs/privacy-policy.zh-CN.md` at build time. Keep translations aligned when policy wording changes. Its URL is local to the extension; Chrome Web Store submission still needs a publicly accessible policy URL. `pnpm build:policy` renders the same documents as script-free English and Chinese HTML pages; deploy only `.output/public-policy/`, then verify the public URL before filling the dashboard.
 
 WXT content scripts normally bundle dynamic imports into their IIFE. The `pdf-export` entrypoint uses a targeted Vite hook to emit a self-contained ES module. The isolated script imports its fixed extension URL only for PDF exports; its WAR match scope is the same supported hosts as the font. Navigation and Markdown exports never load either resource.
+
+## Extension metadata languages
+
+Chrome localizes the extension name and short description through `public/_locales/en/messages.json` and `public/_locales/zh_CN/messages.json`. WXT copies these files into the ZIP's `_locales/` directory. The manifest uses `__MSG_extensionName__` and `__MSG_extensionDescription__`, with `default_locale: 'en'`; Chrome resolves messages through its native `i18n` system and falls back to English for unsupported browser UI locales. Keep the English description aligned with `package.json` and both descriptions aligned with the READMEs and store copy.
+
+Navigation and settings labels continue to use the existing page-language/manual-language preference, which can differ from Chrome's UI language. Native `getMessage()` selects the browser locale and cannot select an arbitrary chat-page language. Store long descriptions and localized screenshots are entered separately in the developer dashboard after uploading the localized ZIP; see [Chrome Web Store preparation](chrome-web-store.md).
 
 ## Browser regression checks
 

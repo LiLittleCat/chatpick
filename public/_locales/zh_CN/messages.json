@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "ChatPick — 让 AI 长对话更好找",
+    "description": "本地化扩展名称，包含 ChatPick 品牌和标语。"
+  },
+  "extensionDescription": {
+    "message": "按问题和回答章节快速跳转 AI 对话，支持 Markdown 和 PDF 导出。",
+    "description": "Chrome 和 Chrome 网上应用店显示的简短描述，最多 132 个字符。"
+  }
+}

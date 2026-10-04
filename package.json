@@ -1,6 +1,6 @@
 {
   "name": "chatpick",
-  "description": "Navigate AI conversations by question and answer section.",
+  "description": "Navigate AI chats by question and answer section. Export conversations as Markdown or PDF.",
   "private": true,
   "license": "MIT",
   "version": "0.1.0",
@@ -14,6 +14,8 @@
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "build:policy": "node scripts/public-policy.mjs",
+    "build:website": "node scripts/website.mjs",
+    "preview:website": "node scripts/website-preview.mjs",
     "test:navigation": "node tests/navigation.browser.mjs",
     "test:question-links": "node tests/question-links.browser.mjs",
     "test:question-classification": "node tests/question-classification.browser.mjs",

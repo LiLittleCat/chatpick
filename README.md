@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-Navigate AI conversations by question and answer section.
+Navigate AI chats by question and answer section. Export conversations as Markdown or PDF.
 
 ChatPick is a Chrome extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation.
 

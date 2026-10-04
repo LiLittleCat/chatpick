@@ -60,6 +60,13 @@ jobs:
               assert manifest['manifest_version'] == 3, 'Expected Manifest V3'
               version = json.loads(Path('package.json').read_text())['version']
               assert manifest['version'] == version, 'Package version mismatch'
+              assert manifest['default_locale'] == 'en', 'Expected English fallback'
+              for locale in ('en', 'zh_CN'):
+                  messages = json.loads(archive.read(f'_locales/{locale}/messages.json'))
+                  for field in ('name', 'description'):
+                      message_key = manifest[field].removeprefix('__MSG_').removesuffix('__')
+                      assert messages[message_key]['message'], f'Missing {locale} {field}'
+                  assert len(messages['extensionDescription']['message']) <= 132, 'Description too long'
               for filename in ('THIRD-PARTY-NOTICES.txt', 'fonts/OFL.txt', 'fonts/NotoSansSC-Regular.ttf', 'pdf-export.js'):
                   assert filename in archive.namelist(), f'Missing bundled resource: {filename}'
           print(f'Verified {packages[0]}')

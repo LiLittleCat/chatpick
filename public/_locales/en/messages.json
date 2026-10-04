@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "ChatPick — Find your way through AI chats",
+    "description": "Localized extension name, including the ChatPick brand and tagline."
+  },
+  "extensionDescription": {
+    "message": "Navigate AI chats by question and answer section. Export conversations as Markdown or PDF.",
+    "description": "Short description shown in Chrome and the Chrome Web Store. Maximum 132 characters."
+  }
+}

@@ -4,8 +4,10 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'ChatPick',
-    description: 'Navigate AI conversations by question and answer section.',
+    name: '__MSG_extensionName__',
+    short_name: 'ChatPick',
+    description: '__MSG_extensionDescription__',
+    default_locale: 'en',
     permissions: ['storage'],
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'none'; base-uri 'none';" },
     web_accessible_resources: [{

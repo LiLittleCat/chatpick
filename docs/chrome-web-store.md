@@ -18,8 +18,8 @@
 | --- | --- |
 | 开发者账号 | 注册 Chrome Web Store 开发者账号，支付一次性注册费，启用 Google 账号两步验证，完成发布者名称和联系邮箱验证。费用以注册页面为准。 |
 | 发布者身份 | 按实际情况声明 Trader / Non-Trader；若属于 Trader，完成所需身份和联系信息验证。 |
-| 公开联系信息 | 邮箱为 `hi@yl.do`；需在开发者控制台完成邮箱验证。支持网址可使用独立支持页或公开仓库 Issues。代码已托管到私有 GitHub 仓库，公开支持网址仍待准备。 |
-| 隐私政策 URL | 设置面板已有随插件打包的政策入口，政策已包含联系邮箱；`pnpm build:policy` 已可生成同源文档的中英文静态网页至 `.output/public-policy/`；仍需托管为无需登录即可访问的页面并填入控制台。本地 Markdown 路径和扩展内部地址不能作为商店提交网址。 |
+| 公开联系信息 | 邮箱为 `hi@yl.do`；需在开发者控制台完成邮箱验证。中英文主页代码已在 `website/` 准备，计划部署至 Cloudflare Pages 的 `chatpick.yl.do`；当前仅本地预览，公开网址仍待部署和验证。代码已托管到私有 GitHub 仓库，不将私有仓库地址作为公开支持入口。 |
+| 隐私政策 URL | 设置面板已有随插件打包的政策入口，政策已包含联系邮箱；`pnpm build:policy` 生成独立中英文政策页面，`pnpm build:website` 将同源政策一并生成至 `.output/website/privacy/`；仍需托管为无需登录即可访问的页面并填入控制台。本地预览、Markdown 路径和扩展内部地址不能作为商店提交网址。 |
 | 商店图标 | 使用 `public/icon/128.png`；上传前检查透明背景和缩小后的可读性。 |
 | 商店截图 | 中英文演示对话各 2 张 1280 × 800 实站截图已准备，用于核心商店截图；原各 5 张功能卡保留作宣传材料；见[图片预览与使用说明](store-assets/README.md)。尚未上传。 |
 | 小宣传图 | 必需的 [440 × 280 PNG](store-assets/promo-small.png) 已准备，尚未上传。 |
@@ -37,21 +37,27 @@
 
 ### 名称与简短描述
 
-名称：`ChatPick`。
+英文名称：`ChatPick — Find your way through AI chats`。
 
-英文简短描述与当前 manifest 一致，少于 132 个字符：
+中文名称：`ChatPick — 让 AI 长对话更好找`。
+
+简短名称与界面品牌保留 `ChatPick`。
+
+英文简短描述来自扩展的 `en` 语言包，少于 132 个字符：
 
 ```text
-Navigate AI conversations by question and answer section.
+Navigate AI chats by question and answer section. Export conversations as Markdown or PDF.
 ```
 
 中文简短描述：
 
 ```text
-在 AI 长对话中，按问题和回答章节快速跳转。
+按问题和回答章节快速跳转 AI 对话，支持 Markdown 和 PDF 导出。
 ```
 
-默认语言建议 English，分类建议 Workflow & Planning（工作流程和规划）。界面中英文切换已实现；商店多语言发布需另行配置本地化材料，界面设置不会自动生成商店译文。
+扩展已配置原生 `i18n` 元数据：`public/_locales/en/messages.json` 和 `public/_locales/zh_CN/messages.json` 分别提供英文与简体中文名称、简短描述，`default_locale` 为 `en`。Chrome 根据浏览器界面语言解析，未支持的语言回退英文。分类建议 Workflow & Planning（工作流程和规划）。插件内部的网页语言跟随和手动切换独立于商店语言。
+
+上传新版 ZIP 后，在 **Store listing** 顶部的语言下拉框分别选择 **English** 和 **Chinese (China)**，填入下方对应语言的详细说明，并上传对应截图。语言选项来自 ZIP 内的 `_locales/` 目录；README 和插件设置不会自动填入商店详细说明。语言与分发地区分别配置，两种语言仍是同一个扩展条目。详见[官方本地化说明](https://developer.chrome.com/docs/webstore/cws-dashboard-listing#localize-your-listing)。
 
 ### 英文详细说明
 
@@ -76,6 +82,31 @@ The extension reads the current conversation in your browser using the site's ex
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
 ChatPick is an independent project and is not affiliated with the supported AI providers.
+```
+
+### 中文详细说明
+
+```text
+使用 ChatPick，在 AI 长对话中快速找到需要的内容。
+
+ChatPick 在当前 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 或千问对话旁提供问题目录。选择之前的提问，展开回答的章节，或直接前往开头、上一个问题、下一个问题和底部。
+
+功能
+• 浏览当前对话分支中的问题，相同提问出现多次也能分别定位。
+• 将会话导出为 Markdown 或可搜索的 PDF；内容不完整时，会在下载前明确提示。
+• 查看回答的标题目录，跳转到需要的章节。
+• 跟随聊天网页的明暗和配色，使用各网站自己的高亮颜色。
+• 为每个网站单独启用或关闭 ChatPick，支持的网站默认启用。
+• 选择自动、浅色或深色外观；跟随聊天网页语言，或手动选择英文、中文。
+• 提供轻量界面动效，尊重减少动态效果偏好；内容跳转保持即时。
+
+ChatPick 适用于已保存的对话页面，包括 ChatGPT 项目聊天、自定义 GPT 聊天、Dots，以及 Claude 项目内的聊天。首页、项目概览、设置和分享链接页面不显示导航。使用前需登录对应 AI 服务。
+
+扩展在浏览器中读取当前对话。普通 ChatGPT、Claude 和 DeepSeek 对话使用网站现有登录会话，通过同一服务的只读 HTTPS 请求获取内容。ChatGPT Dots、Gemini、Grok、Perplexity、Qwen 和千问使用网页已显示的内容，不额外请求历史或读取凭据。为提供导航及用户主动发起的本地导出，扩展会处理对话文本、页面信息和必要的会话认证信息。扩展存储仅保存网站启用状态、外观、语言、配色和按钮显示偏好。ChatPick 没有分析统计、广告或开发者运营的数据服务器，不会把聊天内容或凭据发送给开发者。
+
+当网站历史接口不可用时，ChatPick 使用页面中已观察到的消息，尚未加载的历史可能缺失。没有标题的回答不显示章节菜单。网站更新可能影响导航功能。
+
+ChatPick 是独立项目，与所支持的 AI 服务提供方没有关联。
 ```
 
 ## 隐私表单准备

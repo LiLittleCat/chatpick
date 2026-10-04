@@ -120,7 +120,7 @@ PDF 库与中文字体随包提供，字体资源仅开放给支持的网站；�
 
 ```text
 1. Install ChatPick and sign in to ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, or Qianwen using a test account. ChatPick has no separate account or login.
-2. Open a saved conversation with several user questions and an answer containing headings. Supported paths are /c/:id or /g/g-…/c/:id on ChatGPT, /chat/:id on Claude, /a/chat/s/:id on DeepSeek, /app/:id on Gemini, /c/:id on Grok and Qwen, /search/:id on Perplexity, and /chat/:32-hex-id on Qianwen.
+2. Open a saved conversation with several user questions and an answer containing headings. Supported paths are /c/:id or /g/g-…/c/:id on ChatGPT, /chat/:id on Claude, /a/chat/s/:id on DeepSeek, /app/:id or /u/:account-number/app/:id on Gemini, /c/:id on Grok and Qwen, /search/:id on Perplexity, and /chat/:32-hex-id on Qianwen.
 3. Use the right-side question navigator to jump between questions. Hover a question with a chevron and select one of its answer headings.
 4. Test the start, previous question, next question, and bottom buttons on each supported website.
 5. Select Export above the navigation controls, choose Markdown or PDF, and check the downloaded file. Choosing a format starts the download directly. When history is unavailable or a reply is still generating, the menu and file show a partial-content notice. Files are generated locally; no developer service receives them.

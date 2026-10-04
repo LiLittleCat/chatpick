@@ -18,7 +18,7 @@ const id = '11111111-1111-1111-1111-111111111111';
 const providers = [
   ['chatgpt', 'chatgpt.com', '/c/' + id], ['chatgpt', 'chat.openai.com', '/c/' + id],
   ['claude', 'claude.ai', '/chat/' + id], ['deepseek', 'chat.deepseek.com', '/a/chat/s/' + id],
-  ['gemini', 'gemini.google.com', '/app/1111111111111111'], ['grok', 'grok.com', '/c/' + id],
+  ['gemini', 'gemini.google.com', '/u/2/app/1111111111111111'], ['grok', 'grok.com', '/c/' + id],
   ['perplexity', 'www.perplexity.ai', '/search/' + id], ['qwen', 'chat.qwen.ai', '/c/' + id],
   ['qianwen', 'www.qianwen.com', '/chat/' + id.replaceAll('-', '')], ['qianwen', 'qianwen.com', '/chat/' + id.replaceAll('-', '')],
 ];

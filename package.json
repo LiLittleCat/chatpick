@@ -20,6 +20,7 @@
     "test:claude": "node tests/claude.browser.mjs",
     "test:deepseek": "node tests/deepseek.browser.mjs",
     "test:routes": "node tests/routes.browser.mjs",
+    "test:gemini-routes": "node tests/gemini-routes.browser.mjs",
     "test:sites": "node tests/sites.browser.mjs",
     "test:colors": "node tests/colors.browser.mjs",
     "test:brand-colors": "node tests/brand-colors.browser.mjs",

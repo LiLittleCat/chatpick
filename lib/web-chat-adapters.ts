@@ -34,7 +34,7 @@ const configurations = {
   'www.qianwen.com': qianwen,
   'qianwen.com': qianwen,
   'gemini.google.com': {
-    name: 'Gemini', route: /^\/app\/([0-9a-f]{16})\/?$/i,
+    name: 'Gemini', route: /^\/(?:u\/\d+\/)?app\/([0-9a-f]{16})\/?$/i,
     user: 'user-query', answer: 'model-response',
     content: '.query-text-line', answerContent: 'message-content .markdown',
     colors: {

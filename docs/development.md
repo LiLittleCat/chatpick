@@ -54,6 +54,7 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 | `pnpm test:deepseek` | DeepSeek navigation, virtual lists, and fallback |
 | `pnpm test:sites` | Actual extension/popup: per-provider enablement, shared host aliases, persisted opt-out before history reads, SPA transitions, cancellation, and original DeepSeek navigation restoration |
 | `pnpm test:routes` | Conversation scope, SPA transitions, and request cancellation |
+| `pnpm test:gemini-routes` | Gemini ordinary and account-indexed routes, SPA entry/exit, and excluded paths |
 | `pnpm test:colors` | Settings persistence, automatic interface language, independent control visibility switches, site theme changes, appearance overrides, and fallback |
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
 | `pnpm test:web-chats` | DOM providers: identity, headings, streaming, site colors, sparse DOM, excluded paths and SPA lifecycle |
@@ -77,7 +78,7 @@ The pathname must match a saved-chat detail route; query strings and fragments d
 | ChatGPT | `/c/:id`, `/g/g-…/c/:id` | Home, project/GPT entry, settings, `/share/:id` |
 | Claude | `/chat/:id` | `/new`, `/projects`, `/project/:id`, shared links |
 | DeepSeek | `/a/chat/s/:id` | Home, `/a/chat`, settings |
-| Gemini | `/app/:16-hex-id` | `/app`, `/search`, `/library`, `/students`, notebooks, shared links |
+| Gemini | `/app/:16-hex-id`, `/u/:account-number/app/:16-hex-id` | Home/new-chat entry (including `/u/:account-number/app`), settings, `/search`, `/library`, `/students`, notebooks, shared links |
 | Grok | `/c/:uuid` | `/imagine`, agents, `/library`, `/automations`, shared links |
 | Perplexity | `/search/:uuid`, saved search slugs with a UUID or 22-character identifier | `/search`, `/library`, `/projects`, `/computer/*`, `/page/*`, `/s/*`, settings |
 | Qwen | `/c/:uuid` | Home, `/projects`, `/community`, `/coder`, settings, shared links |

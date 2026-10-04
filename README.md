@@ -4,7 +4,7 @@
 
 Navigate AI chats by question and answer section. Export conversations as Markdown or PDF.
 
-ChatPick is a Chrome extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation.
+ChatPick is a browser extension that puts a question directory beside your chat. Find an earlier question, revisit a section of an answer, or move straight to the beginning or end of a conversation. It has separate desktop builds for Chrome, Firefox, and Microsoft Edge.
 
 ![ChatPick question navigation and answer sections in an example conversation](docs/store-assets/en/01-questions.png)
 
@@ -40,15 +40,20 @@ With Node.js 22.12+ and pnpm installed, run these commands in the project direct
 
 ```sh
 pnpm install
-pnpm build
+pnpm build:all
 ```
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Choose **Load unpacked** and select `.output/chrome-mv3`.
-3. Open or reload a supported chat and use the navigator on the right.
-4. Select the ChatPick toolbar icon to open settings.
+Choose the build for your browser:
 
-If you used an earlier navigation userscript, disable it before installing ChatPick. A Chrome Web Store installation link will be added after publication.
+| Browser | Build only this browser | Local installation |
+| --- | --- | --- |
+| Chrome | `pnpm build:chrome` (also `pnpm build`) | Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `.output/chrome-mv3`. |
+| Firefox desktop 140+ | `pnpm build:firefox` | Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. |
+| Microsoft Edge | `pnpm build:edge` | Open `edge://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `.output/edge-mv3`. |
+
+Open or reload a supported chat and use the navigator on the right. Select the ChatPick toolbar icon to open settings. Firefox's temporary installation lasts until the browser restarts; regular distribution requires a Mozilla-signed package. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+
+If you used an earlier navigation userscript, disable it before installing ChatPick. Chrome Web Store, Firefox Add-ons, and Microsoft Edge Add-ons installation links will be added after publication. See the [distribution guide](docs/browser-distribution.md) for ZIP packaging and Firefox signing.
 
 ## Settings
 

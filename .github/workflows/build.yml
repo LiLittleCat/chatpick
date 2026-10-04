@@ -1,4 +1,4 @@
-name: Build Chrome extension
+name: Build browser extensions
 
 on:
   push:
@@ -16,8 +16,13 @@ concurrency:
 
 jobs:
   build:
+    name: Package ${{ matrix.browser }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox, edge]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -42,39 +47,33 @@ jobs:
       - name: Check types
         run: pnpm compile
 
-      - name: Build and package Chrome extension
-        run: pnpm zip
+      - name: Build and verify ${{ matrix.browser }} extension
+        run: pnpm zip:${{ matrix.browser }}
 
-      - name: Verify store package
-        shell: python
-        run: |
-          import json
-          import zipfile
-          from pathlib import Path
+      - name: Lint Firefox manifest and bundled code
+        if: matrix.browser == 'firefox'
+        run: pnpm exec web-ext lint --source-dir .output/firefox-mv3
+        env:
+          NO_UPDATE_NOTIFIER: '1'
 
-          packages = list(Path('.output').glob('*-chrome.zip'))
-          assert len(packages) == 1, 'Expected one Chrome extension ZIP'
-          with zipfile.ZipFile(packages[0]) as archive:
-              assert archive.testzip() is None, 'Corrupt ZIP entry'
-              manifest = json.loads(archive.read('manifest.json'))
-              assert manifest['manifest_version'] == 3, 'Expected Manifest V3'
-              version = json.loads(Path('package.json').read_text())['version']
-              assert manifest['version'] == version, 'Package version mismatch'
-              assert manifest['default_locale'] == 'en', 'Expected English fallback'
-              for locale in ('en', 'zh_CN'):
-                  messages = json.loads(archive.read(f'_locales/{locale}/messages.json'))
-                  for field in ('name', 'description'):
-                      message_key = manifest[field].removeprefix('__MSG_').removesuffix('__')
-                      assert messages[message_key]['message'], f'Missing {locale} {field}'
-                  assert len(messages['extensionDescription']['message']) <= 132, 'Description too long'
-              for filename in ('THIRD-PARTY-NOTICES.txt', 'fonts/OFL.txt', 'fonts/NotoSansSC-Regular.ttf', 'pdf-export.js'):
-                  assert filename in archive.namelist(), f'Missing bundled resource: {filename}'
-          print(f'Verified {packages[0]}')
+      - name: Rebuild Firefox review sources
+        if: matrix.browser == 'firefox'
+        run: pnpm verify:firefox-sources
 
-      - name: Upload Chrome extension ZIP
+      - name: Upload ${{ matrix.browser }} extension ZIP
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          path: .output/*-chrome.zip
+          path: .output/*-${{ matrix.browser }}.zip
+          include-hidden-files: true
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Firefox review sources
+        if: matrix.browser == 'firefox'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          path: .output/*-firefox-sources.zip
           include-hidden-files: true
           archive: false
           if-no-files-found: error

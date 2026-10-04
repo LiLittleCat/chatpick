@@ -10,7 +10,9 @@ const width = 595.28, height = 841.89, margin = 48, usable = width - margin * 2;
 export async function transcriptPdf(chat: Transcript, fontBytes: ArrayBuffer | Uint8Array, signal?: AbortSignal): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(createPdfFontkit());
-  const font = await pdf.embedFont(fontBytes, { subset: true });
+  // Firefox's imported module can retain a foreign realm for ArrayBuffer views.
+  // Copy byte values so pdf-lib's instanceof checks accept a module-owned array.
+  const font = await pdf.embedFont(Uint8Array.from(new Uint8Array(fontBytes)), { subset: true });
   const mono = await pdf.embedFont(StandardFonts.Courier);
   const characters = new Set(font.getCharacterSet());
   const clean = (text: string) => Array.from(text.replace(/\t/g, '    ')).map(c => c === '\n' || characters.has(c.codePointAt(0)!) ? c : `[U+${c.codePointAt(0)!.toString(16).toUpperCase()}]`).join('');

@@ -5,10 +5,16 @@ ChatPick uses WXT, React, TypeScript, and Motion. Install Node.js 22.12+ and pnp
 ## Commands
 
 ```sh
-pnpm dev        # WXT development mode
+pnpm dev        # Chrome development mode
+pnpm dev:firefox # Firefox Manifest V3 development mode
+pnpm dev:edge   # Microsoft Edge development mode
 pnpm compile    # TypeScript checks
 pnpm build      # Chrome Manifest V3 production build
-pnpm zip        # Build and package into .output/
+pnpm build:all  # Chrome, Firefox, and Edge production builds
+pnpm zip        # Build, package, and verify Chrome ZIP
+pnpm zip:all    # Build, package, and verify all three browser ZIPs
+pnpm verify:packages # Verify existing ZIPs for all three browsers
+pnpm verify:firefox-sources # Rebuild Firefox review sources and compare packaged files
 pnpm build:policy # Standalone public policy pages in .output/public-policy/
 pnpm build:website # Bilingual product website in .output/website/
 pnpm preview:website # Local website preview at http://127.0.0.1:4173/
@@ -16,13 +22,23 @@ pnpm test:website # Website theme and carousel checks
 pnpm audit:website # Lighthouse against a running website preview
 ```
 
-Load `.output/chrome-mv3` as an unpacked extension in Chrome. Firefox commands are available in `package.json`; browser regression coverage currently targets Chromium.
+All browser targets explicitly use Manifest V3:
+
+| Browser | Build | Package | Production directory |
+| --- | --- | --- | --- |
+| Chrome | `pnpm build:chrome` | `pnpm zip:chrome` | `.output/chrome-mv3/` |
+| Firefox desktop 140+ | `pnpm build:firefox` | `pnpm zip:firefox` | `.output/firefox-mv3/` |
+| Microsoft Edge | `pnpm build:edge` | `pnpm zip:edge` | `.output/edge-mv3/` |
+
+Load Chrome and Edge directories through **Load unpacked** on `chrome://extensions` and `edge://extensions`. For Firefox, use **Load Temporary Add-on** on `about:debugging#/runtime/this-firefox` and select the built `manifest.json`; this installation ends on browser restart. Provider regression suites run in Chromium; `pnpm test:browser` can smoke-test a selected browser target as described below. Complete target-browser manual release checks as well. Package formats, Firefox signing, and source rebuild instructions are in the [distribution guide](browser-distribution.md).
+
+Firefox's manifest uses the stable ID `chatpick@yl.do`, a desktop minimum version of `140.0`, and required built-in data consent for `authenticationInfo`, `browsingActivity`, and `websiteContent`. These declarations cover existing session credentials, cookies/request headers, and current conversation identifiers sent only to the same provider for history reads. Conversation bodies are fetched and processed locally. Mobile browsers are unverified. Keep these declarations aligned with both privacy policies and store materials.
 
 ## GitHub builds
 
-The [Build Chrome extension workflow](../.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual runs. It uses Node.js 24 and pnpm 12.6.0, installs the frozen lockfile, checks TypeScript, and runs `pnpm zip`, which performs the production build before packaging. It verifies the ZIP's root manifest, version, English/Chinese metadata, bundled PDF resources, and license notices before uploading it.
+The [Build browser extensions workflow](../.github/workflows/build.yml) runs on pushes to `main`, pull requests targeting `main`, and manual runs. Its matrix packages Chrome, Firefox, and Edge independently with Node.js 24 and pnpm 12.6.0. Each job installs the frozen lockfile, checks TypeScript, and runs `pnpm zip:<browser>`, which builds the production extension and verifies the package before uploading it. Package checks include the root manifest, version, English/Chinese metadata, supported sites, bundled PDF resources, license notices, and browser-specific manifest fields. The Firefox job also runs `web-ext lint` and `pnpm verify:firefox-sources`; the latter extracts the source ZIP into a temporary directory, installs locked dependencies, checks types, rebuilds Firefox, and compares every emitted file with the extension ZIP byte for byte.
 
-Open the repository's **Actions → Build Chrome extension**, select a successful run, and download `chatpick-<version>-chrome.zip` from **Artifacts**. The artifact is the extension ZIP itself, ready to upload to the Chrome Web Store or extract for local installation. Artifacts are retained for 30 days. The workflow builds the package; run the relevant browser regression suites separately before release.
+Open the repository's **Actions → Build browser extensions**, select a successful run, and download `chatpick-<version>-chrome.zip`, `chatpick-<version>-firefox.zip`, or `chatpick-<version>-edge.zip` from **Artifacts**. Firefox also uploads `chatpick-<version>-firefox-sources.zip` for source review. Artifacts are the ZIP files themselves, retained for 30 days. Chrome and Edge ZIPs are store submission packages; Firefox's ZIP is unsigned and needs AMO review/signing for regular distribution. The workflow packages extensions; run relevant browser regression suites and target-browser manual checks separately before release.
 
 ## Product website
 
@@ -51,11 +67,13 @@ The privacy page imports `docs/privacy-policy.md` and `docs/privacy-policy.zh-CN
 
 WXT content scripts normally bundle dynamic imports into their IIFE. The `pdf-export` entrypoint uses a targeted Vite hook to emit a self-contained ES module. The isolated script imports its fixed extension URL only for PDF exports; its WAR match scope is the same supported hosts as the font. Navigation and Markdown exports never load either resource.
 
+The popup's Tailwind import scans only `entrypoints/popup/`. Keep this scope explicit so unrelated website, test, and local files cannot change the extension CSS or the Firefox source rebuild.
+
 ## Extension metadata languages
 
-Chrome localizes the extension name and short description through `public/_locales/en/messages.json` and `public/_locales/zh_CN/messages.json`. WXT copies these files into the ZIP's `_locales/` directory. The manifest uses `__MSG_extensionName__` and `__MSG_extensionDescription__`, with `default_locale: 'en'`; Chrome resolves messages through its native `i18n` system and falls back to English for unsupported browser UI locales. Keep the English description aligned with `package.json` and both descriptions aligned with the READMEs and store copy.
+Chrome, Firefox, and Edge localize the extension name and short description through `public/_locales/en/messages.json` and `public/_locales/zh_CN/messages.json`. WXT copies these files into each ZIP's `_locales/` directory. The manifest uses `__MSG_extensionName__` and `__MSG_extensionDescription__`, with `default_locale: 'en'`; the browser resolves messages through its native `i18n` system and falls back to English for unsupported browser UI locales. Keep the English description aligned with `package.json` and both descriptions aligned with the READMEs and store copy.
 
-Navigation and settings labels continue to use the existing page-language/manual-language preference, which can differ from Chrome's UI language. Native `getMessage()` selects the browser locale and cannot select an arbitrary chat-page language. Store long descriptions and localized screenshots are entered separately in the developer dashboard after uploading the localized ZIP; see [Chrome Web Store preparation](chrome-web-store.md).
+Navigation and settings labels continue to use the existing page-language/manual-language preference, which can differ from the browser's UI language. Native `getMessage()` selects the browser locale and cannot select an arbitrary chat-page language. Store long descriptions and localized screenshots are entered separately in each developer dashboard after uploading the localized ZIP; see [Chrome Web Store preparation](chrome-web-store.md) and [browser distribution](browser-distribution.md).
 
 ## Browser regression checks
 
@@ -63,15 +81,24 @@ Tests use Playwright and synthetic provider pages without real accounts. Playwri
 
 ```sh
 npm install --prefix /tmp/chatpick-browser-tests playwright
-/tmp/chatpick-browser-tests/node_modules/.bin/playwright install chromium
+/tmp/chatpick-browser-tests/node_modules/.bin/playwright install chromium firefox
 export CHATPICK_PLAYWRIGHT_MODULE=/tmp/chatpick-browser-tests/node_modules/playwright
-pnpm build
+pnpm build:all
 ```
 
-For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module directory.
+For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module directory. The provider suites need only Chromium. The browser smoke test uses `CHATPICK_BROWSER=chrome|firefox|edge`, defaulting to `chrome`, and loads `.output/<browser>-mv3/`; build that target first. The `chrome` target runs its Chrome package in Playwright's Chromium, `firefox` runs Firefox with a temporary add-on and disposable profile, and `edge` uses the locally installed Microsoft Edge through the `msedge` channel. The script does not install Edge.
+
+```sh
+CHATPICK_BROWSER=chrome pnpm test:browser
+CHATPICK_BROWSER=firefox pnpm test:browser
+CHATPICK_BROWSER=edge pnpm test:browser
+```
+
+The smoke test loads the real production extension, including the popup, isolated settings bridge, MAIN-world navigator, extension storage, messaging and local resources. Provider responses use synthetic ChatGPT fixtures without real credentials. It checks stored website opt-out before history reads, repeated question identities, rendered final-answer headings, instant jumps, SPA cleanup, language/theme settings and local Markdown/PDF downloads. Passing these checks does not verify live provider DOM or signed Firefox installation.
 
 | Command | Coverage |
 | --- | --- |
+| `CHATPICK_BROWSER=<browser> pnpm test:browser` | Selected Chrome/Firefox/Edge production package: real extension APIs/worlds, popup/settings, navigation, SPA lifecycle and local exports |
 | `CHATPICK_BUILT=1 pnpm test:navigation` | ChatGPT question identity, repeated questions, headings, streaming, and DOM fallback |
 | `pnpm test:question-links` | Markdown link labels, URL underlines, literal code, safe text, repeated labels and unchanged question jumps; API/DOM fallback and Trusted Types |
 | `pnpm test:new-questions` | New sends on all eight providers, disjoint virtual windows, delayed visibility, in-flight reconciliation, stale snapshots and API failure |
@@ -93,7 +120,7 @@ For an existing installation, point `CHATPICK_PLAYWRIGHT_MODULE` to that module 
 
 Standalone MAIN-world suites supply the initial settings through `tests/navigator-fixture.mjs`, replacing the isolated script bridge omitted by those fixtures. Full-extension site/export suites use the real bridge. Production startup waits for stored settings so a disabled website never starts conversation reads.
 
-All suites except `test:navigation` read production output. The navigation suite can also run the source directly; use `CHATPICK_BUILT=1` for production checks. Select the suites relevant to the change, as described in [AGENTS.md](../AGENTS.md).
+Provider suites except `test:navigation` read Chrome production output. The navigation suite can also run the source directly; use `CHATPICK_BUILT=1` for production checks. `test:browser` reads the selected browser's production output. Select the suites relevant to the change, as described in [AGENTS.md](../AGENTS.md).
 
 Use synthetic conversations in issue reports and public screenshots. Keep private chats, account identifiers, and credentials out of logs, fixtures, and release materials.
 

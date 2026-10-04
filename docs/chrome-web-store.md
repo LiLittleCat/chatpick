@@ -2,9 +2,11 @@
 
 核对日期：2026-10-04。本文针对当前 ChatPick 实现；发布前按实际上传版本核对权限、数据行为和开发者控制台要求。
 
+Firefox 与 Microsoft Edge 的构建格式、源码提交和签名要求见[浏览器分发指南](browser-distribution.md)。本文仍用于 Chrome Web Store 的材料准备；三个商店的发布和公开安装链接均待确认。
+
 ## 当前已具备
 
-- Chrome Manifest V3 构建、`pnpm zip` 打包命令，以及 [GitHub Actions 自动构建](../.github/workflows/build.yml)。
+- Chrome Manifest V3 构建、`pnpm zip:chrome` 打包与校验命令（`pnpm zip` 为同一默认入口），以及 [GitHub Actions 自动构建](../.github/workflows/build.yml)。
 - 扩展名称、简短描述、版本号，以及 `public/icon/` 中的 PNG 图标。
 - 限定在支持的域名的 content scripts，以及用于设置的 `storage` 权限。
 - 随扩展打包的 React、Motion 与导航代码，没有远程可执行代码或开发者数据服务器。
@@ -111,7 +113,7 @@ ChatPick 是独立项目，与所支持的 AI 服务提供方没有关联。
 
 ## 隐私表单准备
 
-Google 要求本地处理的数据也如实披露。当前代码会处理聊天文本、当前聊天地址以及现有认证信息，不能将“没有上传给开发者”写成“完全不处理用户数据”。参见[官方用户数据 FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)。
+Google 要求本地处理的数据也如实披露。当前代码会处理聊天文本、当前聊天地址以及现有认证信息，不能将“没有上传给开发者”写成“完全不处理用户数据”。普通 ChatGPT、Claude 和 DeepSeek 的历史读取请求会向同一平台发送已有认证信息、Cookie/请求头、当前对话标识，以及必要的组织或设备标识；扩展不会上传取回的聊天正文。参见[官方用户数据 FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)。中英文隐私政策已说明这些请求；Firefox 的内置数据同意声明单独记录在[分发指南](browser-distribution.md)，它不替代 Chrome 的隐私表单。
 
 ### Single purpose description
 
@@ -176,12 +178,12 @@ Expected behavior: repeated questions stay distinct; answers without headings ha
 ## 构建与提交
 
 1. 更新 `package.json` 版本号；后续更新需要比已发布版本更高的版本号。
-2. 运行 `pnpm compile`、`pnpm build` 以及开发指南中的浏览器测试，导航测试使用 `CHATPICK_BUILT=1`。
-3. 运行 `pnpm zip`，检查 `.output/` 下生成的 Chrome MV3 ZIP。Chrome 默认只生成扩展包；如果另行生成了 sources ZIP，保留它用于源码核查，不作为商店安装包上传。
+2. 运行 `pnpm compile`、`pnpm build:chrome` 以及开发指南中的浏览器测试，导航测试使用 `CHATPICK_BUILT=1`。
+3. 运行 `pnpm zip:chrome`，检查 `.output/` 下生成的 Chrome MV3 ZIP。Chrome 默认只生成扩展包；如果另行生成了 sources ZIP，保留它用于源码核查，不作为商店安装包上传。需要另外准备 Firefox 与 Edge 时运行 `pnpm zip:all`。
 4. 检查 ZIP 根目录的 manifest、支持的域名、权限、本地脚本和图标，以及许可证通知。导出依赖与项目许可证通知已随 `THIRD-PARTY-NOTICES.txt` 打包，Noto 字体许可证在 `fonts/OFL.txt`；核对其他既有依赖的分发要求。
 5. 在开发者控制台新建条目，上传 ZIP，填写商店页面、隐私和分发字段及审核步骤，预览材料后提交审核。
 6. 发布后记录商店链接并更新 README；网站适配或数据行为变化时同步更新说明。
 
-也可以在仓库 **Actions → Build Chrome extension** 中打开对应提交的成功构建，从 **Artifacts** 下载 `chatpick-<version>-chrome.zip`。下载的是可直接上传商店的扩展 ZIP，产物保留 30 天。推送到 `main`、向 `main` 提交 PR 或点击 **Run workflow** 都会触发构建；提交审核前仍需完成浏览器测试和上述手动验证。
+也可以在仓库 **Actions → Build browser extensions** 中打开对应提交的成功构建，从 **Artifacts** 下载 `chatpick-<version>-chrome.zip`。同一工作流另有 Firefox 和 Edge 的独立任务与 ZIP，以及 Firefox 的源码审核 ZIP；Chrome 提交使用 `-chrome.zip`。下载的是可直接上传商店的扩展 ZIP，产物保留 30 天。推送到 `main`、向 `main` 提交 PR 或点击 **Run workflow** 都会触发构建；提交审核前仍需完成浏览器测试和上述手动验证。
 
 打包要求见[提交准备说明](https://developer.chrome.com/docs/webstore/prepare)，提交流程见[官方发布指南](https://developer.chrome.com/docs/webstore/publish)。上述清单用于准备材料，不代表已经通过审核或完成发布。

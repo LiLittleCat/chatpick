@@ -4,7 +4,7 @@
 
 按问题和回答章节快速跳转 AI 对话，支持 Markdown 和 PDF 导出。
 
-ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你找到之前的提问、回看回答中的某一节，或直接返回对话开头和底部。
+ChatPick 是一个浏览器扩展，在聊天旁边提供问题目录，帮助你找到之前的提问、回看回答中的某一节，或直接返回对话开头和底部。提供 Chrome、Firefox 和 Microsoft Edge 桌面版的独立构建。
 
 ![ChatPick 的问题导航与回答章节示例](docs/store-assets/zh-CN/01-questions.png)
 
@@ -40,15 +40,20 @@ ChatPick 是一个 Chrome 扩展，在聊天旁边提供问题目录，帮助你
 
 ```sh
 pnpm install
-pnpm build
+pnpm build:all
 ```
 
-1. 打开 `chrome://extensions`，启用「开发者模式」。
-2. 点击「加载已解压的扩展程序」，选择 `.output/chrome-mv3`。
-3. 打开或刷新一个受支持的聊天页面，使用右侧导航。
-4. 点击工具栏中的 ChatPick 图标打开设置。
+按浏览器选择对应构建：
 
-如果使用过旧版导航脚本，请先停用。Chrome 网上应用店安装链接将在发布后补充。
+| 浏览器 | 仅构建此浏览器 | 本地安装 |
+| --- | --- | --- |
+| Chrome | `pnpm build:chrome`（也可用 `pnpm build`） | 打开 `chrome://extensions`，启用「开发者模式」，点击「加载已解压的扩展程序」，选择 `.output/chrome-mv3`。 |
+| Firefox 桌面版 140+ | `pnpm build:firefox` | 打开 `about:debugging#/runtime/this-firefox`，点击「临时载入附加组件」，选择 `.output/firefox-mv3/manifest.json`。 |
+| Microsoft Edge | `pnpm build:edge` | 打开 `edge://extensions`，启用「开发者模式」，点击「加载解压缩的扩展」，选择 `.output/edge-mv3`。 |
+
+打开或刷新一个受支持的聊天页面，使用右侧导航。点击工具栏中的 ChatPick 图标打开设置。Firefox 临时安装在浏览器重启后失效；正式分发需要 Mozilla 签名包，详见 [Mozilla 安装说明](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/)。
+
+如果使用过旧版导航脚本，请先停用。Chrome 网上应用店、Firefox 附加组件和 Microsoft Edge 加载项的安装链接将在发布后补充。ZIP 打包和 Firefox 签名见[分发指南](docs/browser-distribution.md)。
 
 ## 设置
 

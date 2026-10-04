@@ -68,13 +68,14 @@ export default defineContentScript({
         sendSettings();
       }
     });
-    browser.runtime.onMessage.addListener((message) => {
-      if (message?.type === 'chatpick:get-site') return Promise.resolve(site);
+    // Synchronous callbacks also work before Chromium supported Promise replies.
+    browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type === 'chatpick:get-site') sendResponse(site);
       if (message?.type === 'chatpick:get-theme') {
-        return Promise.resolve(document.getElementById('cgpt-nav-box')?.getAttribute('data-theme') ?? null);
+        sendResponse(document.getElementById('cgpt-nav-box')?.getAttribute('data-theme') ?? null);
       }
       if (message?.type === 'chatpick:get-language') {
-        return Promise.resolve(resolveLanguage('auto', document.documentElement.lang, navigator.language));
+        sendResponse(resolveLanguage('auto', document.documentElement.lang, navigator.language));
       }
     });
 

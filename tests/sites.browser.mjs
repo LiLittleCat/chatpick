@@ -33,13 +33,22 @@ const chatgptHistory = { title: 'Learning routine', current_node: 'u1', mapping:
 let popup;
 async function stored() { return popup.evaluate(() => chrome.storage.local.get(null)); }
 async function openPopup(page) {
-  // A real toolbar popup queries the active chat tab. This standalone extension
-  // tab stays in the background while the synthetic chat remains active.
+  // Query the active chat before focusing this standalone popup tab for input.
   await page.bringToFront();
-  await popup.reload();
+  await popup.reload({ waitUntil: 'commit' });
   const toggle = popup.locator('.site-setting [role="switch"]');
-  await popup.waitForFunction(() => !document.querySelector('.site-setting button')?.disabled);
+  await popup.waitForFunction(() => {
+    const button = document.querySelector('.site-setting button');
+    return button && !button.disabled;
+  });
+  await popup.bringToFront();
   return toggle;
+}
+async function changeSite(page, toggle, keyboard = false) {
+  await popup.bringToFront();
+  if (keyboard) await toggle.press('Space');
+  else await toggle.click();
+  await page.bringToFront();
 }
 const absent = page => page.waitForFunction(() => !document.querySelector('#cgpt-nav-box, #cgpt-nav-style, #cgpt-nav-toast'));
 try {
@@ -72,11 +81,12 @@ try {
     assert.equal(await toggle.getAttribute('aria-checked'), 'true', `${host}: enabled by default`);
     assert.equal(await toggle.evaluate(el => [...document.querySelectorAll('[role="switch"]')].indexOf(el)), 0, 'Site switch is the first control');
     if (site === 'deepseek') {
+      await page.bringToFront();
       await page.waitForFunction(() => document.documentElement.classList.contains('chatpick-deepseek-active'));
       assert.equal(await page.locator('#native').evaluate(el => getComputedStyle(el).visibility), 'hidden');
       await page.locator('.ds-virtual-list').evaluate(el => { el.scrollTop = 30; window.fixtureNativeDimensions = [el.clientWidth, el.clientHeight, el.scrollHeight, el.scrollTop]; });
     }
-    await toggle.click();
+    await changeSite(page, toggle);
     await absent(page);
     assert.deepEqual((await stored()).disabledSites, [site]);
     if (site === 'deepseek') {
@@ -93,11 +103,12 @@ try {
     assert.equal(requests, beforeReload, `${host}: persisted opt-out prevents even initial history/auth reads`);
     toggle = await openPopup(page);
     assert.equal(await toggle.getAttribute('aria-checked'), 'false', 'Popup reopening preserves opt-out');
+    await page.bringToFront();
     await page.evaluate(routePath => { history.pushState({}, '', '/'); history.pushState({}, '', routePath); }, routePath);
     await page.waitForTimeout(2200);
     await absent(page);
     assert.equal(requests, beforeReload, 'SPA entry and fallback timer do not re-enable a disabled website');
-    await toggle.press('Space');
+    await changeSite(page, toggle, true);
     await page.locator('#cgpt-nav-box').waitFor();
     if (site === 'deepseek') await page.waitForFunction(() => document.documentElement.classList.contains('chatpick-deepseek-active'));
     assert.deepEqual((await stored()).disabledSites, []);
@@ -108,15 +119,15 @@ try {
   await popup.evaluate(() => chrome.storage.local.set({ disabledSites: ['chatgpt'] }));
   await absent(pages[0]); await absent(pages[1]);
   assert.ok(await pages[3].locator('#cgpt-nav-box').isVisible());
-  let toggle = await openPopup(pages[3]); await toggle.click();
+  let toggle = await openPopup(pages[3]); await changeSite(pages[3], toggle);
   assert.deepEqual((await stored()).disabledSites, ['chatgpt', 'deepseek']);
-  toggle = await openPopup(pages[0]); await toggle.click();
+  toggle = await openPopup(pages[0]); await changeSite(pages[0], toggle);
   assert.deepEqual((await stored()).disabledSites, ['deepseek']);
   await pages[0].locator('#cgpt-nav-box').waitFor(); await pages[1].locator('#cgpt-nav-box').waitFor();
   await absent(pages[3]);
   await popup.evaluate(() => chrome.storage.local.set({ disabledSites: ['qianwen', 'not-supported', 'https://example.com/private', 'qianwen'] }));
   await absent(pages[8]); await absent(pages[9]);
-  toggle = await openPopup(pages[9]); await toggle.click();
+  toggle = await openPopup(pages[9]); await changeSite(pages[9], toggle);
   assert.deepEqual((await stored()).disabledSites, [], 'Only supported provider IDs are retained');
   console.log('PASS: independent providers, shared host aliases, validated settings');
 
@@ -135,12 +146,12 @@ try {
   const deadline = Date.now() + 5000;
   while (!authStarted && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
   assert.ok(authStarted);
-  toggle = await openPopup(pending); await toggle.click(); await absent(pending);
+  toggle = await openPopup(pending); await changeSite(pending, toggle); await absent(pending);
   finishAuth(); await pending.waitForTimeout(300);
   assert.equal(historyReads, 0);
   console.log('PASS: disabling cancels pending authentication before history reads');
 
-  toggle = await openPopup(pending); await toggle.click();
+  toggle = await openPopup(pending); await changeSite(pending, toggle);
   await pending.waitForFunction(() => document.querySelectorAll('#cgpt-toc .cn-item').length === 1);
   let downloads = 0;
   pending.on('download', () => downloads++);
@@ -150,7 +161,7 @@ try {
   const exportDeadline = Date.now() + 5000;
   while (historyReads < 2 && Date.now() < exportDeadline) await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(historyReads, 2);
-  toggle = await openPopup(pending); await toggle.click(); await absent(pending);
+  toggle = await openPopup(pending); await changeSite(pending, toggle); await absent(pending);
   finishHistory(); await pending.waitForTimeout(300);
   assert.equal(downloads, 0, 'Disabling cancels an in-flight export instead of downloading later');
   console.log('PASS: disabling cancels pending export and removes its menu');
@@ -167,7 +178,7 @@ try {
 
   // Outside a matched website the top switch explains why it is unavailable.
   const unsupported = await context.newPage(); await unsupported.goto('about:blank'); await unsupported.bringToFront();
-  await popup.reload();
+  await popup.reload({ waitUntil: 'commit' });
   await popup.getByText('Open a supported chat website to use this switch.', { exact: true }).waitFor();
   assert.ok(await popup.getByRole('switch', { name: 'Enable on this website', exact: true }).isDisabled());
   assert.deepEqual(errors, []);

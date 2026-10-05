@@ -174,7 +174,7 @@ async function verifyExtension(browser) {
     const gecko = manifest.browser_specific_settings?.gecko;
     assert.equal(gecko?.id, 'chatpick@yl.do', 'Unexpected Firefox extension ID');
     assert.equal(gecko.strict_min_version, '140.0', 'Expected Firefox 140+');
-    assert.equal(manifest.browser_specific_settings.gecko_android?.strict_min_version, '142.0', 'Expected Firefox for Android consent API minimum');
+    assert(!manifest.browser_specific_settings.gecko_android, 'Firefox for Android must not be declared before mobile verification');
     exactList(gecko.data_collection_permissions?.required, ['authenticationInfo', 'browsingActivity', 'websiteContent'], 'Unexpected Firefox data collection declaration');
   } else assert(!manifest.browser_specific_settings, 'Firefox metadata leaked into Chromium package');
   console.log(`Verified ${filename}: MV3, settings isolation, hosts, resources, locales and licenses`);

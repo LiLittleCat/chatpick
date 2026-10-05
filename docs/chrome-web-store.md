@@ -66,7 +66,7 @@ Navigate AI chats by question and answer section. Export conversations as Markdo
 ```text
 Find your way through long AI conversations with ChatPick.
 
-ChatPick adds a question navigator to your current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, or Qianwen chat. Select an earlier question, open its answer headings, or jump to the start, previous question, next question, and bottom of the conversation.
+ChatPick adds a question navigator to your current conversation on supported AI chat websites. Select an earlier question, open its answer headings, or jump to the start, previous question, next question, and bottom of the conversation.
 
 Features
 • Navigate questions in the active conversation branch, including repeated questions.
@@ -78,9 +78,9 @@ Features
 • Choose automatic, light, or dark appearance. Follow the chat website's language or select English or Chinese.
 • Enjoy subtle interface animations that respect reduced-motion preferences. Content jumps remain instant.
 
-ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats, Dots, and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
+ChatPick works on saved conversation pages on supported AI chat websites. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the AI service. See the ChatPick website for the current list of supported services.
 
-The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on regular ChatGPT conversations, Claude, and DeepSeek. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, navigation position, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
+The extension reads the current conversation in your browser from rendered page content or, where supported, through read-only HTTPS requests to the same AI service using its existing session. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, navigation position, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
 
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
@@ -92,7 +92,7 @@ ChatPick is an independent project and is not affiliated with the supported AI p
 ```text
 使用 ChatPick，在 AI 长对话中快速找到需要的内容。
 
-ChatPick 在当前 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qwen 或千问对话旁提供问题目录。选择之前的提问，展开回答的章节，或直接前往开头、上一个问题、下一个问题和底部。
+ChatPick 在支持的 AI 聊天网站中，为当前对话提供问题目录。选择之前的提问，展开回答的章节，或直接前往开头、上一个问题、下一个问题和底部。
 
 功能
 • 浏览当前对话分支中的问题，相同提问出现多次也能分别定位。
@@ -104,9 +104,9 @@ ChatPick 在当前 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qw
 • 选择自动、浅色或深色外观；跟随聊天网页语言，或手动选择英文、中文。
 • 提供轻量界面动效，尊重减少动态效果偏好；内容跳转保持即时。
 
-ChatPick 适用于已保存的对话页面，包括 ChatGPT 项目聊天、自定义 GPT 聊天、Dots，以及 Claude 项目内的聊天。首页、项目概览、设置和分享链接页面不显示导航。使用前需登录对应 AI 服务。
+ChatPick 适用于支持的 AI 聊天网站中已保存的对话页面。首页、项目概览、设置和分享链接页面不显示导航。使用前需登录对应 AI 服务。当前支持的网站列表请查看 ChatPick 主页。
 
-扩展在浏览器中读取当前对话。普通 ChatGPT、Claude 和 DeepSeek 对话使用网站现有登录会话，通过同一服务的只读 HTTPS 请求获取内容。ChatGPT Dots、Gemini、Grok、Perplexity、Qwen 和千问使用网页已显示的内容，不额外请求历史或读取凭据。为提供导航及用户主动发起的本地导出，扩展会处理对话文本、页面信息和必要的会话认证信息。扩展存储仅保存网站启用状态、外观、语言、配色、导航位置和按钮显示偏好。ChatPick 没有分析统计、广告或开发者运营的数据服务器，不会把聊天内容或凭据发送给开发者。
+扩展在浏览器中读取当前对话，使用网页已显示的内容，或在支持时通过网站现有登录会话向同一 AI 服务发起只读 HTTPS 请求。为提供导航及用户主动发起的本地导出，扩展会处理对话文本、页面信息和必要的会话认证信息。扩展存储仅保存网站启用状态、外观、语言、配色、导航位置和按钮显示偏好。ChatPick 没有分析统计、广告或开发者运营的数据服务器，不会把聊天内容或凭据发送给开发者。
 
 当网站历史接口不可用时，ChatPick 使用页面中已观察到的消息，尚未加载的历史可能缺失。没有标题的回答不显示章节菜单。网站更新可能影响导航功能。
 
@@ -120,7 +120,7 @@ Google 要求本地处理的数据也如实披露。当前代码会处理聊天�
 ### Single purpose description
 
 ```text
-Help users navigate their current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, or Qianwen conversation and export it locally as Markdown or PDF.
+Help users navigate their current conversation on supported AI chat websites by question and answer section, and export it locally as Markdown or PDF.
 ```
 
 ### Storage permission justification

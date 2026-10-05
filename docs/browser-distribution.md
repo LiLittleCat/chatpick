@@ -37,6 +37,8 @@ CHATPICK_BROWSER=edge pnpm test:browser
 
 ## Firefox
 
+当前仅提交桌面版；manifest 不声明 `gecko_android`，AMO 提交时不要选择 Firefox for Android。完成移动版验证后再增加该平台。
+
 上传 `chatpick-<version>-firefox.zip` 到 AMO Developer Hub。AMO 接受 ZIP；Firefox 的 XPI 也是 ZIP 格式，改文件后缀不会产生签名。详见 [Mozilla 打包说明](https://extensionworkshop.com/documentation/publish/package-your-extension/)。
 
 Firefox 构建的最低桌面版本为 140.0，扩展 ID 固定为 `chatpick@yl.do`。manifest 声明必需的 `authenticationInfo`、`browsingActivity` 和 `websiteContent` 数据类型，用于 Firefox 安装时的内置同意提示：现有认证信息、Cookie 和请求头、当前对话地址或标识仅发送到对应平台的同源只读接口。聊天正文只取回并在本机处理，不上传给开发者或其他服务。按实际版本核对 [Mozilla 数据分类和同意要求](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/)，不要填写不传输任何数据的 `none`。

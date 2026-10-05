@@ -32,7 +32,6 @@ export default defineConfig({
             required: ['authenticationInfo', 'browsingActivity', 'websiteContent'],
           },
         },
-        gecko_android: { strict_min_version: '142.0' },
       },
     } : {}),
   }),

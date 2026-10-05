@@ -251,6 +251,7 @@ export function attachConversationExport(box: HTMLElement, context: ExportContex
   };
   document.addEventListener('keydown', onKey, true); document.addEventListener('pointerdown', onOutside); window.addEventListener('message', onMessage); updateLabels();
   window.addEventListener('resize', positionPanel);
+  window.addEventListener('chatpick:layout', positionPanel);
   window.addEventListener('chatpick:language', updateLabels);
-  return () => { alive = false; close(); wrapper.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onOutside); window.removeEventListener('message', onMessage); window.removeEventListener('resize', positionPanel); window.removeEventListener('chatpick:language', updateLabels); };
+  return () => { alive = false; close(); wrapper.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onOutside); window.removeEventListener('message', onMessage); window.removeEventListener('resize', positionPanel); window.removeEventListener('chatpick:layout', positionPanel); window.removeEventListener('chatpick:language', updateLabels); };
 }

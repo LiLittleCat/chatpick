@@ -65,7 +65,10 @@ try {
     await page.locator('#cgpt-toc .cn-item').first().focus();
     if (process.env.CHATPICK_LAYOUT_SCREENSHOT) await page.locator('#cgpt-toc').screenshot({ path: process.env.CHATPICK_LAYOUT_SCREENSHOT });
     await page.setViewportSize({ width: 340, height: 900 });
-    await page.waitForFunction(() => document.getElementById('cgpt-sections').getBoundingClientRect().left >= 16);
+    await page.waitForFunction(() => {
+      const section = document.getElementById('cgpt-sections').getBoundingClientRect();
+      return section.left >= 16 && section.right <= innerWidth - 16 && section.bottom < document.getElementById('cgpt-toc').getBoundingClientRect().top;
+    });
     result = await dimensions('#cgpt-sections');
     assert.ok(result.overflow > 1 && result.top >= 16 && result.bottom < (await dimensions('#cgpt-toc')).top, 'Stacked sections scroll within the space above the question list');
     await page.setViewportSize({ width: 1280, height: 720 });
@@ -91,6 +94,55 @@ try {
     await load();
     result = await dimensions('#cgpt-toc');
     assert.ok(result.overflow > 26 && result.top >= 16, 'Long lists retain useful scrolling');
+    if (position === 'left') {
+      await page.evaluate(() => {
+        const sidebar = document.createElement('aside');
+        sidebar.id = 'fixture-sidebar';
+        sidebar.style.cssText = 'position:fixed;left:0;top:0;bottom:0;width:260px';
+        document.body.prepend(sidebar);
+        document.querySelector('main').style.marginLeft = '260px';
+      });
+      await page.waitForTimeout(100);
+      const inset = await page.locator('#cgpt-nav-box').evaluate(el => el.getBoundingClientRect().left);
+      assert.ok(Math.abs(inset - 278) < 1, `Navigation belongs inside the chat, after its 260px sidebar: left=${inset}`);
+      await page.locator('#cgpt-toc .cn-item').first().focus();
+      await page.waitForFunction(() => {
+        const toc = document.getElementById('cgpt-toc').getBoundingClientRect();
+        const section = document.getElementById('cgpt-sections').getBoundingClientRect();
+        return toc.left >= 278 && section.left >= toc.right + 11 && section.right <= innerWidth - 16;
+      });
+      await page.evaluate(() => {
+        document.getElementById('fixture-sidebar').style.width = '72px';
+        document.querySelector('main').style.marginLeft = '72px';
+      });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 90) < 1);
+      // A transform moves the canvas without resizing its border box.
+      await page.evaluate(() => { document.querySelector('main').style.transform = 'translateX(24px)'; });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 114) < 1);
+      await page.evaluate(() => {
+        document.getElementById('fixture-sidebar').remove();
+        const main = document.querySelector('main');
+        main.style.marginLeft = ''; main.style.transform = '';
+        const pane = document.createElement('div');
+        pane.className = 'thread-pane'; pane.style.marginLeft = '320px';
+        pane.append(...main.childNodes); main.appendChild(pane);
+      });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 338) < 1);
+      await page.evaluate(() => { document.querySelector('.thread-pane').style.marginLeft = ''; });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 18) < 1);
+      await page.evaluate(() => {
+        document.querySelector('.thread-pane').className = '';
+        const sidebar = document.createElement('aside');
+        sidebar.style.cssText = 'position:fixed;left:0;top:0;bottom:0;width:72px';
+        document.body.prepend(sidebar);
+      });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 90) < 1);
+      await page.evaluate(() => { document.querySelector('aside').hidden = true; });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 18) < 1);
+      await page.evaluate(() => { document.querySelector('aside').hidden = false; });
+      await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 90) < 1);
+      console.log('PASS: sidebar expansion/collapse, canvas translation and Dots thread boundary');
+    }
     assert.deepEqual(errors, []);
     console.log(`PASS: ${position} placement, inward answer menus, pointer travel, compact lists, viewport limits and keyboard scrolling`);
     await page.close();

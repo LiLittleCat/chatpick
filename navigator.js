@@ -672,6 +672,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     }
     t.textContent = msg;
     t.dataset.position = settings.position;
+    t.style.setProperty('--cn-left', navigationLeft + 'px');
     if (motion.toast) motion.toast(t, true);
     else t.style.opacity = '1';
     clearTimeout(t._timer);
@@ -1325,6 +1326,47 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   let sectionsVisible = false;
   let tocSkeleton = null;
   let tocWidth = TOC_WIDTH;
+  let navigationLeft = 18;
+  let layoutFrame = 0;
+  let layoutResizeObserver = null;
+  let layoutNodes = new Set();
+  const CHAT_AREA = '.thread-pane, main, [role="main"], #main';
+  const SIDEBAR = 'aside, nav, [id*="sidebar"], [data-testid*="sidebar"], .sidebar';
+
+  function chatLeftEdge() {
+    const reference = getUserMessages()[0] || getRenderedAnswers()[0];
+    const areas = Array.from(document.querySelectorAll(CHAT_AREA)).filter(node => node.getClientRects().length && (!reference || node.contains(reference)));
+    const area = reference?.closest('.thread-pane') || areas[0];
+    let edge = Math.max(0, area?.getBoundingClientRect().left || 0);
+    const sidebars = Array.from(document.querySelectorAll(SIDEBAR)).filter(node => {
+      if (node.closest('#cgpt-nav-box, [role="dialog"], [hidden], [aria-hidden="true"], [data-message-author-role], [data-message-role], article.message-row, model-response, user-query, [data-testid="transcript-row"], .ds-message') || reference && node.contains(reference)) return false;
+      const rect = node.getBoundingClientRect();
+      return getComputedStyle(node).visibility !== 'hidden' && rect.width > 0 && rect.height >= Math.min(320, innerHeight / 2)
+        && rect.left <= Math.max(96, edge) && rect.right > 0 && rect.right <= innerWidth - 120;
+    });
+    // Some sites put the sidebar inside a full-width main landmark.
+    sidebars.forEach(node => { edge = Math.max(edge, node.getBoundingClientRect().right); });
+    const nodes = new Set(sidebars);
+    for (let node = area; node; node = node.parentElement) nodes.add(node);
+    layoutNodes.forEach(node => { if (!nodes.has(node)) layoutResizeObserver?.unobserve(node); });
+    nodes.forEach(node => { if (!layoutNodes.has(node)) layoutResizeObserver?.observe(node); });
+    layoutNodes = nodes;
+    return edge;
+  }
+
+  function scheduleLayout() {
+    if (settings.position !== 'left' || layoutFrame || !tocEl) return;
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = 0;
+      safe(resizeToc, '导航布局');
+      // Follow sidebar transforms as well as width transitions.
+      if (Array.from(layoutNodes).some(node => node.getAnimations().some(animation => animation.playState === 'running'))) scheduleLayout();
+    });
+  }
+
+  function expandedTocWidth() {
+    return Math.min(TOC_WIDTH_HOVER, innerWidth - (settings.position === 'left' ? navigationLeft + 16 : 32));
+  }
 
   function fitPanelHeight(panel, list, available) {
     if (!panel || !list || panel.hidden || !panel.getClientRects().length) return;
@@ -1344,10 +1386,11 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
 
   function resizeToc() {
     if (!tocEl) return;
+    applyPosition();
     fitPanelHeight(tocEl, tocList.hidden ? tocSkeleton : tocList, tocEl.getBoundingClientRect().bottom - 16);
     positionSections();
     const expanded = sectionsVisible || tocEl.matches(':hover, :has(:focus-visible)');
-    const width = expanded ? Math.min(TOC_WIDTH_HOVER, innerWidth - 32) : TOC_WIDTH;
+    const width = expanded ? expandedTocWidth() : TOC_WIDTH;
     if (width === tocWidth) return;
     tocWidth = width;
     if (motion.resize) motion.resize(tocEl, width, positionSections);
@@ -1393,7 +1436,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     if (rect.bottom <= tocRect.top || rect.top >= tocRect.bottom) return hideSections();
     // 为主目录最终展开宽度预留空间，避免展开动画把子目录推到屏幕外。
     const leftSide = settings.position === 'left';
-    const expandedWidth = Math.min(TOC_WIDTH_HOVER, innerWidth - 32);
+    const expandedWidth = expandedTocWidth();
     const edge = leftSide ? tocRect.left + expandedWidth : tocRect.right - expandedWidth;
     const beside = leftSide ? innerWidth - edge - 12 : edge - 12;
     if (beside >= 96) {
@@ -1412,9 +1455,17 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   function applyPosition() {
     const box = document.getElementById('cgpt-nav-box');
     if (box) box.dataset.position = settings.position;
+    const left = settings.position === 'left' ? Math.max(18, Math.min(chatLeftEdge() + 18, innerWidth - TOC_WIDTH - 18)) : 18;
+    const moved = left !== navigationLeft;
+    navigationLeft = left;
+    box?.style.setProperty('--cn-left', left + 'px');
     const notice = document.getElementById('cgpt-nav-toast');
-    if (notice) notice.dataset.position = settings.position;
+    if (notice) {
+      notice.dataset.position = settings.position;
+      notice.style.setProperty('--cn-left', left + 'px');
+    }
     positionSections();
+    if (moved) window.dispatchEvent(new Event('chatpick:layout'));
   }
 
   function updateSectionMarker(i, sections) {
@@ -2024,7 +2075,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         gap: 10px;
       }
       #cgpt-nav-box[data-position="left"] {
-        left: 18px;
+        left: var(--cn-left, 18px);
         right: auto;
         align-items: flex-start;
       }
@@ -2247,7 +2298,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         opacity: 0;
         pointer-events: none;
       }
-      #cgpt-nav-toast[data-position="left"] { left: 18px; right: auto; }
+      #cgpt-nav-toast[data-position="left"] { left: var(--cn-left, 18px); right: auto; max-width: min(360px, calc(100vw - var(--cn-left, 18px) - 18px)); }
     `;
     document.head.appendChild(style);
   }
@@ -2379,6 +2430,19 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
   }
 
   function setupObservers() {
+    layoutResizeObserver = new ResizeObserver(scheduleLayout);
+    const layoutObserver = new MutationObserver(records => {
+      const changed = records.some(record => {
+        if (layoutNodes.has(record.target)) return true;
+        if (record.type === 'attributes' && record.target instanceof Element && record.target.matches(CHAT_AREA + ', ' + SIDEBAR)) return true;
+        if (record.type !== 'childList') return false;
+        return [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element
+          && (node.matches(CHAT_AREA + ', ' + SIDEBAR) || node.querySelector(CHAT_AREA + ', ' + SIDEBAR)));
+      });
+      if (changed) scheduleLayout();
+    });
+    layoutObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    layoutObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
     // scroll 事件不冒泡，用捕获阶段监听任意滚动容器
     document.addEventListener('scroll', onScroll, { capture: true, passive: true });
     document.addEventListener('wheel', releaseQuestionSelection, { capture: true, passive: true });
@@ -2424,6 +2488,12 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       else if (mq.addListener) mq.addListener(onTheme);
     }
     return () => {
+      layoutObserver.disconnect();
+      layoutResizeObserver.disconnect();
+      layoutResizeObserver = null;
+      layoutNodes.clear();
+      cancelAnimationFrame(layoutFrame);
+      layoutFrame = 0;
       contentObserver.disconnect();
       themeObserver.disconnect();
       document.removeEventListener('scroll', onScroll, true);

@@ -69,7 +69,7 @@ If you used an earlier navigation userscript, disable it before installing ChatP
 
 The switch at the top enables ChatPick for the current website. All supported websites are enabled by default. Turning it off removes ChatPick navigation and restores any native navigation it had replaced. Your choice is remembered for that website and does not affect other websites.
 
-Changes apply immediately to open chats. Appearance and colors can be chosen independently. You can show or hide export and jump buttons independently; the conversation directory remains available. Open **Privacy policy** at the bottom of the settings panel to read the policy in English or Chinese.
+Changes apply immediately to open chats. Left-side navigation follows the edge of the chat area as the website sidebar opens or closes. Appearance and colors can be chosen independently. You can show or hide export and jump buttons independently; the conversation directory remains available. Open **Privacy policy** at the bottom of the settings panel to read the policy in English or Chinese.
 
 ## Privacy
 

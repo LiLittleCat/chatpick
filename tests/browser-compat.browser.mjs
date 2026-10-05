@@ -226,11 +226,20 @@ try {
   assert.equal(await page.locator('#cgpt-nav-toast').count(), 0, 'Stable question/section jumps succeed');
 
   await page.locator('#chatpick-export-button').click();
+  await page.evaluate(() => {
+    const sidebar = document.createElement('aside');
+    sidebar.id = 'fixture-sidebar'; sidebar.style.cssText = 'position:fixed;left:0;top:0;bottom:0;width:240px';
+    document.body.prepend(sidebar); document.querySelector('main').style.marginLeft = '240px';
+  });
+  await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 258) < 1);
   await page.waitForFunction(() => {
     const panel = document.getElementById('chatpick-export-panel').getBoundingClientRect();
     const button = document.getElementById('chatpick-export-button').getBoundingClientRect();
     return panel.left >= button.right + 9 && panel.right <= innerWidth - 12;
   });
+  await page.evaluate(() => { document.getElementById('fixture-sidebar').remove(); document.querySelector('main').style.marginLeft = ''; });
+  await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 18) < 1);
+  await page.waitForFunction(() => document.getElementById('chatpick-export-panel').getBoundingClientRect().left < 120);
   await set({ position: 'right' });
   await page.waitForFunction(() => {
     const panel = document.getElementById('chatpick-export-panel').getBoundingClientRect();

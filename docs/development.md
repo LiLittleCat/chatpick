@@ -114,7 +114,7 @@ The smoke test loads the real production extension, including the popup, isolate
 | `pnpm test:brand-colors` | Provider-specific brand highlights |
 | `pnpm test:web-chats` | DOM providers: identity, headings, streaming, site colors, sparse DOM, excluded paths and SPA lifecycle |
 | `pnpm test:export` | One-click Markdown/PDF downloads, full text, active branches, partial notices, cancellation, CJK and Trusted Types |
-| `pnpm test:layout` | Left/right placement, inward answer menus, pointer travel, compact question/section lists, viewport height limits, and keyboard scrolling |
+| `pnpm test:layout` | Left/right placement, sidebar and chat-area boundaries, inward answer menus, pointer travel, compact question/section lists, viewport height limits, and keyboard scrolling |
 | `pnpm test:motion` | Answer panel enter/exit, interrupted closing, reduced motion, accessibility and route cleanup |
 | `pnpm test:perplexity` | Answer-only virtual windows, question remounting, conversation reset, and accurate jumps |
 

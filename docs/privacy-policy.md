@@ -1,6 +1,6 @@
 # ChatPick Privacy Policy
 
-Last updated: October 4, 2026
+Last updated: October 5, 2026
 
 ChatPick is an independent browser extension that helps you navigate the current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perplexity, Qwen, or Qianwen conversation by question and answer heading. This policy describes the extension, not the AI providers' own services.
 
@@ -11,7 +11,7 @@ ChatPick processes the following information in your browser to provide navigati
 - **Conversation content:** questions, answers, headings, message identifiers, branch relationships, and related metadata obtained from the current conversation's page or the provider's conversation response.
 - **Current page information:** the supported site's hostname, conversation URL and identifier, relevant page elements, and theme colors. ChatPick does not read your browser-wide history.
 - **Existing session information:** the current provider's authentication tokens or cookies and identifiers needed to read that conversation. ChatGPT session information may include an access token and device identifier; Claude requests use its existing session and organization identifier; DeepSeek requests use its existing session token. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen navigation reads rendered page content without reading session credentials or making additional history requests. ChatPick does not ask you to enter a password or create a ChatPick account.
-- **Preferences:** your per-website enablement, appearance, language, color, and export/jump button visibility settings. Website enablement stores only supported provider identifiers, not conversation URLs or browsing history.
+- **Preferences:** your per-website enablement, appearance, language, color, navigation position, and export/jump button visibility settings. Website enablement stores only supported provider identifiers, not conversation URLs or browsing history.
 
 Conversation text can contain personal or sensitive information. ChatPick uses it only to provide navigation and exports of the current conversation. It does not use it to train AI models, create profiles, or target advertising.
 

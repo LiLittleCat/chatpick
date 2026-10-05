@@ -201,7 +201,20 @@ try {
     await siteSwitch.click();
   }
   await page.waitForFunction(() => document.querySelectorAll('#cgpt-toc .cn-item').length === 2);
+  assert.ok(await page.locator('#cgpt-nav-box').evaluate(el => Math.abs(innerWidth - el.getBoundingClientRect().right - 18) < 1), 'Existing installations default to the right');
+  if (target === 'firefox') await set({ position: 'left' });
+  else {
+    await popup.bringToFront();
+    await popup.getByRole('combobox', { name: 'Position Right', exact: true }).click();
+    await popup.getByRole('option', { name: 'Left', exact: true }).click();
+    await popup.getByRole('combobox', { name: 'Position Left', exact: true }).waitFor();
+  }
   await page.bringToFront();
+  await page.waitForFunction(() => Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 18) < 1);
+  assert.equal((await stored()).position, 'left', 'Popup choice is persisted through the real extension API');
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#cgpt-toc .cn-item').length === 2 && Math.abs(document.getElementById('cgpt-nav-box').getBoundingClientRect().left - 18) < 1);
+  console.log(`PASS ${target}: left placement applies immediately and survives page reload`);
 
   await page.locator('#cgpt-toc .cn-item').nth(1).click();
   await page.waitForFunction(() => Math.abs(document.querySelector('[data-message-id="u2"]').getBoundingClientRect().top - 72) < 2);
@@ -213,6 +226,26 @@ try {
   assert.equal(await page.locator('#cgpt-nav-toast').count(), 0, 'Stable question/section jumps succeed');
 
   await page.locator('#chatpick-export-button').click();
+  await page.waitForFunction(() => {
+    const panel = document.getElementById('chatpick-export-panel').getBoundingClientRect();
+    const button = document.getElementById('chatpick-export-button').getBoundingClientRect();
+    return panel.left >= button.right + 9 && panel.right <= innerWidth - 12;
+  });
+  await set({ position: 'right' });
+  await page.waitForFunction(() => {
+    const panel = document.getElementById('chatpick-export-panel').getBoundingClientRect();
+    const button = document.getElementById('chatpick-export-button').getBoundingClientRect();
+    return panel.left >= 12 && panel.right <= button.left - 9;
+  });
+  await set({ position: 'left' });
+  await page.waitForFunction(() => document.getElementById('chatpick-export-panel').getBoundingClientRect().left >= document.getElementById('chatpick-export-button').getBoundingClientRect().right + 9);
+  await page.setViewportSize({ width: 340, height: 800 });
+  await page.waitForFunction(() => {
+    const rect = document.getElementById('chatpick-export-panel').getBoundingClientRect();
+    return rect.left >= 12 && rect.right <= innerWidth - 12;
+  });
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.waitForFunction(() => document.getElementById('chatpick-export-panel').getBoundingClientRect().left >= document.getElementById('chatpick-export-button').getBoundingClientRect().right + 9);
   const markdownDownload = page.waitForEvent('download', { timeout: 10000 });
   await page.locator('#chatpick-export-panel [data-format="markdown"]').click();
   const markdownFile = await markdownDownload.catch(async error => {
@@ -262,13 +295,14 @@ try {
   assert.equal(historyReads, beforeExit, 'Non-conversation routes stop history reads');
   await page.evaluate(chatId => history.pushState({}, '', `/c/${chatId}`), chatId);
   await page.waitForFunction(() => document.querySelectorAll('#cgpt-toc .cn-item').length === 2);
+  assert.ok(await page.locator('#cgpt-nav-box').evaluate(el => Math.abs(el.getBoundingClientRect().left - 18) < 1), 'SPA re-entry retains left placement');
   await set({ language: 'zh', theme: 'dark' });
   await page.waitForFunction(() => document.querySelector('#cgpt-nav-box')?.dataset.theme === 'dark');
   if (target === 'firefox') {
     assert.ok((await evaluatePopup(() => document.body.textContent)).includes('在此网站启用'), 'Real Firefox popup follows Chinese preference');
   } else await popup.getByRole('switch', { name: '在此网站启用', exact: true }).waitFor();
   assert.ok(await page.getByRole('button', { name: '回到开头', exact: true }).isVisible());
-  assert.ok(Object.keys(await stored()).every(key => ['theme', 'language', 'colors', 'showExport', 'showJumpButtons', 'disabledSites'].includes(key)), 'Only preferences are stored');
+  assert.ok(Object.keys(await stored()).every(key => ['theme', 'language', 'colors', 'position', 'showExport', 'showJumpButtons', 'disabledSites'].includes(key)), 'Only preferences are stored');
   assert.deepEqual(errors, []);
   console.log(`PASS ${target}: real MV3 bridge/popup, opt-out, identities, final headings, instant jumps, SPA lifecycle, local Markdown/PDF and CJK`);
 } finally {

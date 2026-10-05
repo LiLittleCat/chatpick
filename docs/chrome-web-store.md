@@ -73,13 +73,14 @@ Features
 • Export the current conversation as Markdown or a searchable PDF; partial content is labeled before downloading.
 • Browse an answer's headings and jump to the section you need.
 • Follow the chat page's colors, with highlights that match each website.
+• Place navigation on the left or right side of the page.
 • Enable or disable ChatPick separately for each website. All supported websites are enabled by default.
 • Choose automatic, light, or dark appearance. Follow the chat website's language or select English or Chinese.
 • Enjoy subtle interface animations that respect reduced-motion preferences. Content jumps remain instant.
 
 ChatPick works on saved conversation pages, including ChatGPT project/custom GPT chats, Dots, and Claude project chats. Home pages, project overviews, settings, and shared links do not display navigation. You must already be signed in to the supported AI service.
 
-The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on regular ChatGPT conversations, Claude, and DeepSeek. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
+The extension reads the current conversation in your browser using the site's existing session and read-only HTTPS requests to that same service on regular ChatGPT conversations, Claude, and DeepSeek. ChatGPT Dots, Gemini, Grok, Perplexity, Qwen, and Qianwen use rendered page content without additional history requests or credential reads. It processes conversation text, page information, and necessary session credentials to provide navigation and user-initiated local exports. Only per-website enablement, appearance, language, color, navigation position, and button visibility preferences are saved in extension storage. ChatPick has no analytics, ads, or developer-operated data server and does not send your chats or credentials to its developer.
 
 If a provider's history endpoint is unavailable, ChatPick falls back to messages observed on the page; unloaded history may be missing. Answers without headings have no section menu. Provider website changes can affect navigation.
 
@@ -98,13 +99,14 @@ ChatPick 在当前 ChatGPT、Claude、DeepSeek、Gemini、Grok、Perplexity、Qw
 • 将会话导出为 Markdown 或可搜索的 PDF；内容不完整时，会在下载前明确提示。
 • 查看回答的标题目录，跳转到需要的章节。
 • 跟随聊天网页的明暗和配色，使用各网站自己的高亮颜色。
+• 将导航放在页面左侧或右侧。
 • 为每个网站单独启用或关闭 ChatPick，支持的网站默认启用。
 • 选择自动、浅色或深色外观；跟随聊天网页语言，或手动选择英文、中文。
 • 提供轻量界面动效，尊重减少动态效果偏好；内容跳转保持即时。
 
 ChatPick 适用于已保存的对话页面，包括 ChatGPT 项目聊天、自定义 GPT 聊天、Dots，以及 Claude 项目内的聊天。首页、项目概览、设置和分享链接页面不显示导航。使用前需登录对应 AI 服务。
 
-扩展在浏览器中读取当前对话。普通 ChatGPT、Claude 和 DeepSeek 对话使用网站现有登录会话，通过同一服务的只读 HTTPS 请求获取内容。ChatGPT Dots、Gemini、Grok、Perplexity、Qwen 和千问使用网页已显示的内容，不额外请求历史或读取凭据。为提供导航及用户主动发起的本地导出，扩展会处理对话文本、页面信息和必要的会话认证信息。扩展存储仅保存网站启用状态、外观、语言、配色和按钮显示偏好。ChatPick 没有分析统计、广告或开发者运营的数据服务器，不会把聊天内容或凭据发送给开发者。
+扩展在浏览器中读取当前对话。普通 ChatGPT、Claude 和 DeepSeek 对话使用网站现有登录会话，通过同一服务的只读 HTTPS 请求获取内容。ChatGPT Dots、Gemini、Grok、Perplexity、Qwen 和千问使用网页已显示的内容，不额外请求历史或读取凭据。为提供导航及用户主动发起的本地导出，扩展会处理对话文本、页面信息和必要的会话认证信息。扩展存储仅保存网站启用状态、外观、语言、配色、导航位置和按钮显示偏好。ChatPick 没有分析统计、广告或开发者运营的数据服务器，不会把聊天内容或凭据发送给开发者。
 
 当网站历史接口不可用时，ChatPick 使用页面中已观察到的消息，尚未加载的历史可能缺失。没有标题的回答不显示章节菜单。网站更新可能影响导航功能。
 
@@ -124,7 +126,7 @@ Help users navigate their current ChatGPT, Claude, DeepSeek, Gemini, Grok, Perpl
 ### Storage permission justification
 
 ```text
-Save only the user's per-website enablement, appearance, language, color, and export/jump button visibility preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
+Save only the user's per-website enablement, appearance, language, color, navigation position, and export/jump button visibility preferences in chrome.storage.local and apply changes to open chat pages. Conversation text and session credentials are not saved in extension storage.
 ```
 
 ### Site access justification
@@ -157,7 +159,7 @@ PDF 库与中文字体随包提供，仅选择 PDF 导出时加载；固定的�
 3. Use the right-side question navigator to jump between questions. Hover a question with a chevron and select one of its answer headings.
 4. Test the start, previous question, next question, and bottom buttons on each supported website.
 5. Select Export above the navigation controls, choose Markdown or PDF, and check the downloaded file. Choosing a format starts the download directly. When history is unavailable or a reply is still generating, the menu and file show a partial-content notice. Files are generated locally; no developer service receives them.
-6. Open the toolbar popup. Use its first switch to turn ChatPick off for the current website: navigation disappears, any native navigation it had replaced is restored, and pending reads/exports are cancelled. Reload the chat to confirm it stays off; another supported website stays enabled. Turn it back on without reloading. Then change appearance, colors, language, and the independent export/jump button switches. Changes apply immediately to the open chat; switch choices are retained after reopening the popup. The conversation directory stays available when the buttons are hidden.
+6. Open the toolbar popup. Use its first switch to turn ChatPick off for the current website: navigation disappears, any native navigation it had replaced is restored, and pending reads/exports are cancelled. Reload the chat to confirm it stays off; another supported website stays enabled. Turn it back on without reloading. Then change appearance, colors, language, navigation position, and the independent export/jump button switches. Left and Right move the directory and its controls together; answer and export menus open toward the page center, or fit within the viewport on narrow screens. Changes apply immediately to the open chat; switch choices are retained after reopening the popup. The conversation directory stays available when the buttons are hidden.
 7. Navigate to the site's home or project overview without reloading. The navigator disappears. Returning to a saved chat enables it again.
 
 Expected behavior: repeated questions stay distinct; answers without headings have no section menu; reduced-motion preferences are respected. If a provider history request fails, navigation uses messages already observed on the page.

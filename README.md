@@ -51,7 +51,7 @@ Choose the build for your browser:
 | Firefox desktop 140+ | `pnpm build:firefox` | Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `.output/firefox-mv3/manifest.json`. |
 | Microsoft Edge | `pnpm build:edge` | Open `edge://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `.output/edge-mv3`. |
 
-Open or reload a supported chat and use the navigator on the right. Select the ChatPick toolbar icon to open settings. Firefox's temporary installation lasts until the browser restarts; regular distribution requires a Mozilla-signed package. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+Open or reload a supported chat and use the navigator. It appears on the right by default; choose Left in settings to move it. Select the ChatPick toolbar icon to open settings. Firefox's temporary installation lasts until the browser restarts; regular distribution requires a Mozilla-signed package. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
 
 If you used an earlier navigation userscript, disable it before installing ChatPick. Chrome Web Store, Firefox Add-ons, and Microsoft Edge Add-ons installation links will be added after publication. See the [distribution guide](docs/browser-distribution.md) for ZIP packaging and Firefox signing.
 
@@ -63,6 +63,7 @@ If you used an earlier navigation userscript, disable it before installing ChatP
 | Appearance | Follow chat appearance, Light, Dark | Follow chat appearance |
 | Colors | Follow chat colors, ChatPick default | Follow chat colors |
 | Language | Follow chat language, English, 中文 | Follow chat language |
+| Position | Left, Right | Right |
 | Show export button | On, Off | On |
 | Show jump buttons | On, Off | On |
 
@@ -72,7 +73,7 @@ Changes apply immediately to open chats. Appearance and colors can be chosen ind
 
 ## Privacy
 
-ChatPick reads your current conversation using your existing sign-in to provide navigation and local exports. Chat content is processed in your browser and is not sent to the developer. Only website enablement, appearance, language, color, and button visibility preferences are saved in extension storage. There are no ads or analytics, and ChatPick does not send, edit, or delete chat messages.
+ChatPick reads your current conversation using your existing sign-in to provide navigation and local exports. Chat content is processed in your browser and is not sent to the developer. Only website enablement, appearance, language, color, navigation position, and button visibility preferences are saved in extension storage. There are no ads or analytics, and ChatPick does not send, edit, or delete chat messages.
 
 Read the [privacy policy](docs/privacy-policy.md) for data handling details. For privacy questions or support, contact [hi@yl.do](mailto:hi@yl.do).
 

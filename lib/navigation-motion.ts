@@ -32,9 +32,10 @@ export function createNavigationMotion() {
         return;
       }
       element.hidden = false;
+      const offset = element.closest('#cgpt-nav-box')?.getAttribute('data-position') === 'left' ? -6 : 6;
       animations.set(element, animate(element, {
         opacity: visible && wasHidden ? [0, 1] : visible ? 1 : 0,
-        x: visible && wasHidden ? [6, 0] : visible ? 0 : 6,
+        x: visible && wasHidden ? [offset, 0] : visible ? 0 : offset,
       }, {
         duration: visible ? 0.16 : 0.12,
         ease,

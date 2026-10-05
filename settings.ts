@@ -1,6 +1,7 @@
 export type ThemeSetting = 'auto' | 'light' | 'dark';
 export type LanguageSetting = 'auto' | 'en' | 'zh';
 export type ColorSetting = 'site' | 'default';
+export type PositionSetting = 'left' | 'right';
 
 export const SITE_NAMES = {
   chatgpt: 'ChatGPT', claude: 'Claude', deepseek: 'DeepSeek', gemini: 'Gemini',
@@ -30,6 +31,7 @@ export type NavigatorSettings = {
   theme: ThemeSetting;
   language: LanguageSetting;
   colors: ColorSetting;
+  position: PositionSetting;
   showExport: boolean;
   showJumpButtons: boolean;
   disabledSites: SiteId[];
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: NavigatorSettings = {
   theme: 'auto',
   language: 'auto',
   colors: 'site',
+  position: 'right',
   showExport: true,
   showJumpButtons: true,
   disabledSites: [],
@@ -49,6 +52,7 @@ export function normalizeSettings(value: Partial<NavigatorSettings>): NavigatorS
     theme: value.theme === 'light' || value.theme === 'dark' ? value.theme : 'auto',
     language: value.language === 'en' || value.language === 'zh' ? value.language : 'auto',
     colors: value.colors === 'default' ? 'default' : 'site',
+    position: value.position === 'left' ? 'left' : 'right',
     showExport: value.showExport !== false,
     showJumpButtons: value.showJumpButtons !== false,
     disabledSites: Array.isArray(value.disabledSites) ? [...new Set(value.disabledSites.filter(isSiteId))] : [],

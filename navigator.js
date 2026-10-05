@@ -30,6 +30,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       theme: value.theme === 'light' || value.theme === 'dark' ? value.theme : 'auto',
       language: value.language === 'zh' || value.language === 'en' ? value.language : 'auto',
       colors: value.colors === 'default' ? 'default' : 'site',
+      position: value.position === 'left' ? 'left' : 'right',
       showExport: value.showExport !== false,
       showJumpButtons: value.showJumpButtons !== false,
       enabled: value.enabled !== false,
@@ -99,6 +100,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     settings = normalizePreferences(event.data.settings);
     safe(syncRoute, '网站启用');
     if (!settings.enabled) return;
+    safe(applyPosition, '导航位置');
     safe(refreshLanguage, '语言');
     const controls = document.getElementById('cgpt-btns');
     if (controls) controls.hidden = !settings.showJumpButtons;
@@ -669,6 +671,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
       document.body.appendChild(t);
     }
     t.textContent = msg;
+    t.dataset.position = settings.position;
     if (motion.toast) motion.toast(t, true);
     else t.style.opacity = '1';
     clearTimeout(t._timer);
@@ -1389,19 +1392,29 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
     const tocRect = tocEl.getBoundingClientRect();
     if (rect.bottom <= tocRect.top || rect.top >= tocRect.bottom) return hideSections();
     // 为主目录最终展开宽度预留空间，避免展开动画把子目录推到屏幕外。
-    const left = tocRect.right - Math.min(TOC_WIDTH_HOVER, innerWidth - 32);
-    const beside = left - 12;
+    const leftSide = settings.position === 'left';
+    const expandedWidth = Math.min(TOC_WIDTH_HOVER, innerWidth - 32);
+    const edge = leftSide ? tocRect.left + expandedWidth : tocRect.right - expandedWidth;
+    const beside = leftSide ? innerWidth - edge - 12 : edge - 12;
     if (beside >= 96) {
       fitPanelHeight(sectionEl, sectionList, innerHeight - 32);
       sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, beside - 16) + 'px';
-      sectionEl.style.left = beside - parseFloat(sectionEl.style.width) + 'px';
+      sectionEl.style.left = (leftSide ? edge + 12 : beside - parseFloat(sectionEl.style.width)) + 'px';
       sectionEl.style.top = Math.max(16, Math.min(rect.top - 5, innerHeight - sectionEl.offsetHeight - 16)) + 'px';
     } else {
       sectionEl.style.width = Math.min(TOC_WIDTH_HOVER, innerWidth - 32) + 'px';
-      sectionEl.style.left = Math.max(16, tocRect.right - parseFloat(sectionEl.style.width)) + 'px';
+      sectionEl.style.left = Math.max(16, Math.min(leftSide ? tocRect.left : tocRect.right - parseFloat(sectionEl.style.width), innerWidth - parseFloat(sectionEl.style.width) - 16)) + 'px';
       fitPanelHeight(sectionEl, sectionList, tocRect.top - 28);
       sectionEl.style.top = Math.max(16, tocRect.top - sectionEl.offsetHeight - 12) + 'px';
     }
+  }
+
+  function applyPosition() {
+    const box = document.getElementById('cgpt-nav-box');
+    if (box) box.dataset.position = settings.position;
+    const notice = document.getElementById('cgpt-nav-toast');
+    if (notice) notice.dataset.position = settings.position;
+    positionSections();
   }
 
   function updateSectionMarker(i, sections) {
@@ -2010,6 +2023,11 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         align-items: flex-end;
         gap: 10px;
       }
+      #cgpt-nav-box[data-position="left"] {
+        left: 18px;
+        right: auto;
+        align-items: flex-start;
+      }
       /* 浅色主题（默认） */
       #cgpt-nav-box,
       #cgpt-nav-box[data-theme="light"] {
@@ -2142,6 +2160,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         pointer-events: none;
       }
       #cgpt-nav-box .cn-section-marker[hidden] { display: none; }
+      #cgpt-nav-box[data-position="left"] .cn-section-marker svg { transform: rotate(180deg); }
       #cgpt-nav-box .cn-t { display: inline-block; white-space: nowrap; }
       #cgpt-nav-box .cn-link { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 
@@ -2190,6 +2209,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         transition: opacity .12s ease, visibility .12s ease;
       }
       #cgpt-btns button:is(:hover,:focus-visible)::after, #chatpick-export-button:is(:hover,:focus-visible):not([aria-expanded="true"])::after { opacity: 1; visibility: visible; transition-delay: .2s; }
+      #cgpt-nav-box[data-position="left"] button[data-tooltip]::after { left: calc(100% + 14px); right: auto; }
       #cgpt-nav-box .cn-spinner { display: none; width: 14px; height: 14px; flex: none; box-sizing: border-box; border: 1.5px solid var(--cn-border); border-top-color: currentColor; border-radius: 50%; animation: cn-spin .75s linear infinite; }
       #chatpick-export-button[data-busy="true"] .cn-spinner { display: block; }
       #chatpick-export-button[data-busy="true"] > svg { display: none; }
@@ -2227,6 +2247,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
         opacity: 0;
         pointer-events: none;
       }
+      #cgpt-nav-toast[data-position="left"] { left: 18px; right: auto; }
     `;
     document.head.appendChild(style);
   }
@@ -2269,6 +2290,7 @@ export function startNavigator(motion = {}, adapter = null, exporter = null, ini
 
     const box = document.createElement('div');
     box.id = 'cgpt-nav-box';
+    box.dataset.position = settings.position;
 
     tocEl = document.createElement('div');
     tocEl.id = 'cgpt-toc';

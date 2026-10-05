@@ -122,6 +122,16 @@ try {
     return route.fulfill({ contentType, body: fs.readFileSync(path.join(output, filename)) });
   });
   await popup.goto('https://chatpick.test/popup.html');
+  await popup.getByRole('combobox', { name: '导航位置 右侧', exact: true }).click();
+  await popup.getByRole('option', { name: '左侧', exact: true }).click();
+  await popup.getByRole('combobox', { name: '导航位置 左侧', exact: true }).waitFor();
+  assert.equal(stored.value.position, 'left');
+  await popup.reload();
+  await popup.getByRole('combobox', { name: '导航位置 左侧', exact: true }).waitFor();
+  await popup.getByRole('combobox', { name: '导航位置 左侧', exact: true }).press('Enter');
+  await popup.getByRole('option', { name: '右侧', exact: true }).click();
+  assert.equal(stored.value.position, 'right');
+  console.log('PASS: position choices, keyboard access and persistence');
   await popup.getByRole('combobox', { name: '语言 中文', exact: true }).click();
   await popup.getByRole('option', { name: '跟随网页语言', exact: true }).click();
   await popup.getByRole('combobox', { name: '语言 跟随网页语言', exact: true }).waitFor();

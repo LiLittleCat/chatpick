@@ -86,6 +86,7 @@ export default defineContentScript({
       if (changes.theme) next.theme = changes.theme.newValue as NavigatorSettings['theme'];
       if (changes.language) next.language = changes.language.newValue as NavigatorSettings['language'];
       if (changes.colors) next.colors = changes.colors.newValue as NavigatorSettings['colors'];
+      if (changes.position) next.position = changes.position.newValue as NavigatorSettings['position'];
       if (changes.showExport) next.showExport = changes.showExport.newValue as NavigatorSettings['showExport'];
       if (changes.showJumpButtons) next.showJumpButtons = changes.showJumpButtons.newValue as NavigatorSettings['showJumpButtons'];
       if (changes.disabledSites) next.disabledSites = changes.disabledSites.newValue as NavigatorSettings['disabledSites'];

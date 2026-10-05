@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { SettingsSelect } from './SettingsSelect';
 import { SettingsToggle } from './SettingsToggle';
-import { DEFAULT_SETTINGS, SITE_NAMES, isSiteEnabled, isSiteId, normalizeSettings, resolveLanguage, type ColorSetting, type LanguageSetting, type NavigatorSettings, type SiteId, type ThemeSetting } from '@/settings';
+import { DEFAULT_SETTINGS, SITE_NAMES, isSiteEnabled, isSiteId, normalizeSettings, resolveLanguage, type ColorSetting, type LanguageSetting, type NavigatorSettings, type PositionSetting, type SiteId, type ThemeSetting } from '@/settings';
 import './App.css';
 
 const translations = {
@@ -15,6 +16,9 @@ const translations = {
     siteColors: 'Follow chat colors',
     defaultColors: 'ChatPick default',
     language: 'Language',
+    position: 'Position',
+    left: 'Left',
+    right: 'Right',
     autoLanguage: 'Follow chat language',
     privacy: 'Privacy policy',
     controls: 'Controls',
@@ -36,6 +40,9 @@ const translations = {
     siteColors: '跟随网页配色',
     defaultColors: 'ChatPick 默认',
     language: '语言',
+    position: '导航位置',
+    left: '左侧',
+    right: '右侧',
     autoLanguage: '跟随网页语言',
     privacy: '隐私政策',
     controls: '按钮显示',
@@ -54,7 +61,7 @@ function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [site, setSite] = useState<SiteId | null>(null);
   const [siteLoaded, setSiteLoaded] = useState(false);
-  const [activeSelect, setActiveSelect] = useState<'theme' | 'colors' | 'language' | null>(null);
+  const [activeSelect, setActiveSelect] = useState<'theme' | 'colors' | 'language' | 'position' | null>(null);
   const [pageLanguage, setPageLanguage] = useState(() => resolveLanguage('auto', '', navigator.language));
 
   useEffect(() => {
@@ -161,6 +168,13 @@ function App() {
           onChange={(language) => update({ language })}
           open={activeSelect === 'language'} onOpenChange={(open) => setActiveSelect(open ? 'language' : null)} />
       </div>
+      <div className="settings-row" style={{ zIndex: activeSelect === 'position' ? 2 : 1 }}>
+        <label id="position-label">{t.position}</label>
+        <SettingsSelect<PositionSetting> labelId="position-label" value={settings.position}
+          options={[{ value: 'left', label: t.left }, { value: 'right', label: t.right }]}
+          onChange={(position) => update({ position })}
+          open={activeSelect === 'position'} onOpenChange={(open) => setActiveSelect(open ? 'position' : null)} />
+      </div>
       <section className="settings-toggles" aria-label={t.controls}>
         <SettingsToggle label={t.showExport} checked={settings.showExport}
           onChange={(showExport) => update({ showExport })} />
@@ -170,6 +184,9 @@ function App() {
       <footer className="popup-footer">
         <a href={browser.runtime.getURL('/privacy.html') + `?lang=${interfaceLanguage}`} target="_blank" rel="noopener noreferrer">
           {t.privacy}
+        </a>
+        <a href="https://github.com/LiLittleCat/chatpick" target="_blank" rel="noopener noreferrer">
+          GitHub <ExternalLink size={14} aria-hidden="true" />
         </a>
       </footer>
     </main>

@@ -118,6 +118,10 @@
 }
 
 .popup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
   margin-top: 18px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
@@ -125,6 +129,10 @@
 }
 
 .popup-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
   color: var(--muted-foreground);
   font-size: 12px;
   text-decoration: none;

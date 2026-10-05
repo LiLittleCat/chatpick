@@ -51,7 +51,7 @@ pnpm build:all
 | Firefox 桌面版 140+ | `pnpm build:firefox` | 打开 `about:debugging#/runtime/this-firefox`，点击「临时载入附加组件」，选择 `.output/firefox-mv3/manifest.json`。 |
 | Microsoft Edge | `pnpm build:edge` | 打开 `edge://extensions`，启用「开发者模式」，点击「加载解压缩的扩展」，选择 `.output/edge-mv3`。 |
 
-打开或刷新一个受支持的聊天页面，使用右侧导航。点击工具栏中的 ChatPick 图标打开设置。Firefox 临时安装在浏览器重启后失效；正式分发需要 Mozilla 签名包，详见 [Mozilla 安装说明](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/)。
+打开或刷新一个受支持的聊天页面，使用导航。默认显示在右侧，也可以在设置中改为左侧。点击工具栏中的 ChatPick 图标打开设置。Firefox 临时安装在浏览器重启后失效；正式分发需要 Mozilla 签名包，详见 [Mozilla 安装说明](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/)。
 
 如果使用过旧版导航脚本，请先停用。Chrome 网上应用店、Firefox 附加组件和 Microsoft Edge 加载项的安装链接将在发布后补充。ZIP 打包和 Firefox 签名见[分发指南](docs/browser-distribution.md)。
 
@@ -63,6 +63,7 @@ pnpm build:all
 | 明暗 | 跟随网页明暗、浅色、深色 | 跟随网页明暗 |
 | 配色 | 跟随网页配色、ChatPick 默认 | 跟随网页配色 |
 | 语言 | 跟随网页语言、English、中文 | 跟随网页语言 |
+| 导航位置 | 左侧、右侧 | 右侧 |
 | 显示导出按钮 | 开启、关闭 | 开启 |
 | 显示跳转按钮 | 开启、关闭 | 开启 |
 
@@ -72,7 +73,7 @@ pnpm build:all
 
 ## 隐私
 
-ChatPick 使用已有登录状态读取当前对话，以提供导航和本地导出。聊天内容在浏览器中处理，不会发送给开发者。扩展存储只保存网站启用状态、明暗、语言、配色和按钮显示设置。扩展没有广告或分析统计，也不会发送、编辑或删除聊天消息。
+ChatPick 使用已有登录状态读取当前对话，以提供导航和本地导出。聊天内容在浏览器中处理，不会发送给开发者。扩展存储只保存网站启用状态、明暗、语言、配色、导航位置和按钮显示设置。扩展没有广告或分析统计，也不会发送、编辑或删除聊天消息。
 
 数据处理详情见[隐私政策](docs/privacy-policy.zh-CN.md)。隐私问题或支持请求请联系 [hi@yl.do](mailto:hi@yl.do)。
 

@@ -190,7 +190,8 @@ export function attachConversationExport(box: HTMLElement, context: ExportContex
   const positionPanel = () => {
     if (panel.hidden) return;
     const anchor = button.getBoundingClientRect(), rect = panel.getBoundingClientRect();
-    panel.style.left = Math.max(12, anchor.left - rect.width - 10) + 'px';
+    const left = box.dataset.position === 'left' ? anchor.right + 10 : anchor.left - rect.width - 10;
+    panel.style.left = Math.max(12, Math.min(left, innerWidth - rect.width - 12)) + 'px';
     panel.style.top = Math.max(12, Math.min(anchor.top, innerHeight - rect.height - 12)) + 'px';
   };
   const partialNotice = () => text('Exports available content. Earlier messages may be missing, or a response may still be in progress.', '导出可用内容，可能缺少更早的消息，或回答仍在生成中。');
@@ -243,7 +244,7 @@ export function attachConversationExport(box: HTMLElement, context: ExportContex
   const onOutside = (e: PointerEvent) => { if (!panel.hidden && e.target instanceof Node && !wrapper.contains(e.target)) close(); };
   const onMessage = (e: MessageEvent) => {
     if (e.source !== window || e.data?.source !== 'chatpick:extension') return;
-    if (e.data.type === 'settings') { updateLabels(); return; }
+    if (e.data.type === 'settings') { updateLabels(); positionPanel(); return; }
     if (e.data.type !== 'export-result' || e.data.id !== requestId || !alive || request?.signal.aborted) return;
     setExporting(false);
     status.textContent = e.data.ok ? text('Downloaded.', '已下载。') : text('Download failed. Please try again.', '下载失败，请重试。'); options.querySelectorAll('button').forEach(b => b.disabled = false); positionPanel();

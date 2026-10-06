@@ -14,7 +14,7 @@ Open `http://127.0.0.1:4173/` to follow the browser's preferred language: Chines
 | --- | --- |
 | `content.mjs` | English/Chinese copy, feature images and supported websites |
 | `template.mjs` | Semantic HTML and language/asset links |
-| `stores.mjs` | Chrome and Firefox store listing URLs; leave empty until published |
+| `stores.mjs` | Chrome, Firefox and Edge store listing URLs; leave empty until published |
 | `assets/site.css` | Responsive layout and reduced-motion styles |
 | `assets/site.js` | Theme switching, logo keyboard access and feature carousel playback |
 | `assets/language.js` | Theme and browser language selection before rendering, with explicit URL overrides |
@@ -47,12 +47,13 @@ After deployment, add `chatpick.yl.do` under the Pages project's **Custom domain
 
 References: [Git integration](https://developers.cloudflare.com/pages/get-started/git-integration/), [build image](https://developers.cloudflare.com/pages/configuration/build-image/), [custom domains](https://developers.cloudflare.com/pages/configuration/custom-domains/).
 
-Chrome and Firefox download buttons appear in the hero and closing section with locally bundled browser logos. Edge publication is paused, so its download button is omitted. Empty URLs render normal button placeholders with no navigation or release-status label. Fill the corresponding `url` in `stores.mjs` with its verified listing URL and rebuild to turn that button into a store link independently. Build-time overrides are also supported:
+Chrome, Firefox and Edge download buttons appear in the hero and closing section with locally bundled browser logos. Empty URLs render normal button placeholders with no navigation or release-status label. Fill the corresponding `url` in `stores.mjs` with its verified listing URL and rebuild to turn that button into a store link independently. Build-time overrides are also supported:
 
 | Store | Environment variable | Listing URL |
 | --- | --- | --- |
 | Chrome | `CHATPICK_CHROME_STORE_URL` | `https://chromewebstore.google.com/detail/...` |
 | Firefox | `CHATPICK_FIREFOX_STORE_URL` | `https://addons.mozilla.org/en-US/firefox/addon/...` |
+| Edge | `CHATPICK_EDGE_STORE_URL` | `https://microsoftedge.microsoft.com/addons/detail/...` |
 
 The existing `CHATPICK_STORE_URL` remains a fallback for Chrome. URLs must use HTTPS and the corresponding official store host and listing path. Do not fill a store URL before its listing and browser package have been verified.
 
